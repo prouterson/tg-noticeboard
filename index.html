@@ -148,7 +148,7 @@ ul, ol { list-style: none; }
   </main>
 </div>
 
-<script src="config.js"></script>
+<script src="config.js?v=de13936b2c"></script>
 <script>
 (function () {
   "use strict";
@@ -191,6 +191,8 @@ ul, ol { list-style: none; }
   var MO_SVG = '<svg class="c-icon" viewBox="0 0 240 70"><path id="mo" fill="#fff" d="M120 26C108 12 88 10 74 20C62 28 50 38 34 38C22 38 14 30 16 20C8 26 8 38 18 46C32 56 58 54 78 46C96 39 110 38 120 42Z"/><use xlink:href="#mo" transform="translate(240 0) scale(-1 1)" xmlns:xlink="http://www.w3.org/1999/xlink"/></svg>';
   // ?preview: running inside the editor, which sends draft content by postMessage.
   var PREVIEW = /[?&]preview\b/.test(location.search);
+  // This board's version. dev/stamp.mjs sets it, the ?v= on the scripts and version.json (git pre-commit hook).
+  var BUILD = "de13936b2c";
 
   var CFG = window.TG_FIREBASE || {};
   // Live: connected to Firebase and running as the real board (not inside the editor).
@@ -462,12 +464,27 @@ ul, ol { list-style: none; }
     x.send();
   }
 
+  // Every few minutes, check whether a newer board has been put online, and if so load it.
+  // Loading it at a new address (?v=) skips any copy the iPad has saved. Only happens while the site answers.
+  var VERSION_SECS = 300;
+  function checkVersion() {
+    var x = new XMLHttpRequest();
+    x.open("GET", "version.json?t=" + Date.now());
+    x.timeout = 20000;
+    x.onload = function () {
+      var v = null;
+      try { v = JSON.parse(x.responseText).build; } catch (e) {}
+      if (x.status === 200 && v && v !== BUILD) location.replace(location.pathname + "?v=" + encodeURIComponent(v));
+    };
+    x.send();
+  }
+
   fit();
   apply(data);
   drawClock();
   if (LIVE) poll();
 
-  var now = Date.now(), due = { upd: now + 9000, ev: now + 10000, note: now + 6000, poll: now + POLL_SECS * 1000 };
+  var now = Date.now(), due = { upd: now + 9000, ev: now + 10000, note: now + 6000, poll: now + POLL_SECS * 1000, ver: now + 60000 };
   setInterval(function () {
     var t = Date.now();
     drawClock();
@@ -475,6 +492,7 @@ ul, ol { list-style: none; }
     if (t >= due.ev) { due.ev = t + secs("slideSecs", 10) * 1000; events.next(); }
     if (t >= due.note) { due.note = t + secs("noticeSecs", 12) * 1000; notices.next(); }
     if (LIVE && t >= due.poll) { due.poll = t + POLL_SECS * 1000; poll(); }
+    if (LIVE && t >= due.ver) { due.ver = t + VERSION_SECS * 1000; checkVersion(); }
     if (LIVE) nightlyReload(t);
   }, 1000);
 
@@ -502,6 +520,6 @@ ul, ol { list-style: none; }
 })();
 </script>
 <!-- Staff check-in. A module, so iPads too old to run it simply skip it. -->
-<script type="module" src="checkin.js"></script>
+<script type="module" src="checkin.js?v=de13936b2c"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@ A notice board for an old iPad in kiosk mode at Tommy Gun's Carindale, and a web
 - Board: https://prouterson.github.io/tg-noticeboard/
 - Editor: https://prouterson.github.io/tg-noticeboard/editor.html
 
-Both are served by GitHub Pages from the `main` branch. Pushing to `main` updates the site, and the iPad picks up new board code at its nightly reload. Board content lives in Firebase project `tg-notice-board`, not in this repo.
+Both are served by GitHub Pages from the `main` branch. Pushing to `main` updates the site. Every 5 minutes the board compares its `BUILD` with `version.json` and, if they differ, loads `?v=<build>`, which skips the iPad's saved copy. The git pre-commit hook (`.githooks/pre-commit`, enabled with `git config core.hooksPath .githooks`) runs `dev/stamp.mjs`, which sets `BUILD`, the `?v=` on the board's scripts, and `version.json` from a hash of the board files. Board content lives in Firebase project `tg-notice-board`, not in this repo.
 
 - `index.html`: the board. Plain ES5 JavaScript so old iOS Safari (9.3 and later) can run it. Every minute it reads the published content from Firestore over plain REST, with no Firebase library. Around 3am it reloads itself, but only if the site answers.
 - `checkin.js`: staff check-in on the board (name, 4-digit PIN, then start shift, break, back or finish). It is an ES module, so iPads too old for modules just skip it. The iPad signs in anonymously and an editor registers it once by typing the 6-character code it shows. Check-ins are cached on the iPad (Firestore persistent cache), so they survive a Wi-Fi drop.

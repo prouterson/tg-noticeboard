@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stamp the board version so iPads pick up new code (dev/stamp.mjs).
+node dev/stamp.mjs && git add index.html version.json
