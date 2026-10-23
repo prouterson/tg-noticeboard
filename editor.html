@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>TG Notice Board Editor</title>
+<style>
+:root {
+  --bg: #0d0d0d; --s1: #161616; --s2: #1e1e1e; --s3: #272727; --line: #2c2c2c;
+  --text: #f3f3f3; --muted: #9c9c9c; --red: #E1000A; --green: #34c77b; --amber: #f2a93b;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+.cond { font-family: "Avenir Next Condensed", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif; }
+
+/* Sign in */
+.signin { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.signin-card { width: 100%; max-width: 380px; text-align: center; }
+.signin-card .tg { width: 250px; max-width: 80%; }
+.signin-card .cd { width: 170px; display: block; margin: 12px auto 0; }
+.signin-card h1 { font-size: 30px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; margin: 30px 0 6px; }
+.signin-card p { color: var(--muted); margin: 0 0 24px; }
+.gbtn { width: 100%; min-height: 52px; border: 0; border-radius: 10px; background: #fff; color: #1f1f1f; font-weight: 700; font-size: 16px; }
+.fine { font-size: 13px; color: var(--muted); margin-top: 14px !important; }
+.mocknote { margin-top: 28px; font-size: 13px; color: #e0bf6a; border: 1px dashed #5a4a20; border-radius: 9px; padding: 9px 12px; }
+
+/* Top bar */
+.bar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px 16px; background: #000; border-bottom: 3px solid var(--red); }
+.bar .tg { height: 30px; display: block; }
+.bar h1 { margin: 0; font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; line-height: 1; }
+.bar h1 span { color: var(--red); }
+.status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+.status.dirty { color: var(--amber); }
+.status.dirty i { background: var(--amber); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 9px; border: 1px solid transparent; background: var(--s3); color: var(--text); font-weight: 700; font-size: 15px; white-space: nowrap; }
+.btn.red { background: var(--red); }
+.btn.red:disabled { opacity: .35; cursor: default; }
+.btn.ghost { background: transparent; border-color: #3a3a3a; color: #ddd; }
+.btn.small { min-height: 38px; padding: 0 12px; font-size: 14px; }
+.btn.del { background: transparent; border-color: #5a2222; color: #ff7070; }
+.btn.del.arm, .btn.ghost.arm { background: var(--red); border-color: var(--red); color: #fff; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; border: 0; background: #2c2c2c; font-weight: 800; }
+.mock-strip { background: #2a2108; color: #e8c46a; font-size: 13px; text-align: center; padding: 7px 12px; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: 230px minmax(0, 600px) minmax(0, 1fr); gap: 24px; padding: 20px 20px 60px; max-width: 1720px; margin: 0 auto; align-items: start; }
+.tabs { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 4px; }
+.tab { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: #cfcfcf; font-weight: 700; text-align: left; }
+.tab:hover { background: #151515; }
+.tab.on { background: var(--s2); color: #fff; box-shadow: inset 3px 0 var(--red); }
+.tab .n { margin-left: auto; font-size: 12px; color: #bbb; background: #2a2a2a; border-radius: 10px; padding: 1px 8px; }
+.pane-head h2 { margin: 0; font-size: 32px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1; }
+.pane-head p { margin: 6px 0 16px; color: var(--muted); }
+.adds { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.empty-list { padding: 28px; text-align: center; color: var(--muted); border: 1px dashed #333; border-radius: 12px; }
+
+/* List items */
+.item { background: var(--s1); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
+.item.open { border-color: #4a4a4a; background: #181818; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.move { display: flex; flex-direction: column; gap: 3px; flex: none; }
+.move button { width: 34px; height: 24px; border: 0; border-radius: 6px; background: #242424; color: #bbb; display: grid; place-items: center; padding: 0; }
+.move button:disabled { opacity: .25; cursor: default; }
+.move svg { width: 14px; height: 14px; }
+.it-main { flex: 1; min-width: 0; cursor: pointer; padding: 2px 0; outline: none; }
+.item.off .it-main { opacity: .45; }
+.it-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.chip { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: #2e2e2e; color: #ddd; }
+.chip.new { background: var(--red); color: #fff; }
+.chip.staff { background: #fff; color: #000; }
+.state { font-size: 12px; font-weight: 700; color: var(--muted); }
+.state.live { color: var(--green); }
+.state.soon { color: var(--amber); }
+.title { font-weight: 800; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title.ph { color: #777; font-style: italic; font-weight: 600; }
+.sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev { display: flex; gap: 12px; align-items: center; }
+.ev-t { flex: 1; min-width: 0; }
+.thumb { flex: none; width: 42px; height: 63px; border-radius: 6px; background: #000 center / cover no-repeat; border: 1px solid #333; display: grid; place-items: center; }
+.thumb svg { width: 22px; height: 22px; }
+.thumb.comp { background-color: var(--red); border-color: var(--red); }
+.thumb.event { background-color: #262626; }
+
+/* Switch */
+.switch { position: relative; width: 48px; height: 28px; flex: none; }
+.switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.switch span { position: absolute; inset: 0; background: #3a3a3a; border-radius: 14px; transition: background .2s; }
+.switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.switch input:checked + span { background: var(--green); }
+.switch input:checked + span::after { transform: translateX(20px); }
+
+/* Forms */
+.form { border-top: 1px solid var(--line); padding: 16px; display: grid; gap: 14px; }
+.field > label, .flabel { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.count, .note { letter-spacing: 0; text-transform: none; font-weight: 600; }
+.count.max { color: var(--amber); }
+.inp { width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 9px; border: 1px solid #363636; background: #0f0f0f; color: #fff; outline: none; }
+.inp:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(225, 0, 10, .25); }
+textarea.inp { min-height: 80px; resize: vertical; line-height: 1.4; }
+input[type=date].inp, select.inp { color-scheme: dark; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.help { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { min-height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #363636; background: #121212; color: #ccc; font-weight: 700; }
+.seg button.on { background: var(--red); border-color: var(--red); color: #fff; }
+.foot { display: flex; justify-content: space-between; gap: 10px; padding-top: 4px; }
+.lrow { display: flex; gap: 8px; margin-bottom: 8px; }
+.lrow .inp:first-child { flex: 1; }
+.lrow .inp[type=number] { width: 100px; flex: none; }
+.x { width: 46px; flex: none; border-radius: 9px; border: 1px solid #363636; background: #121212; color: #bbb; font-size: 20px; }
+.pick { display: flex; gap: 14px; align-items: center; }
+.pthumb { flex: none; width: 96px; height: 144px; border-radius: 8px; background: #000 center / contain no-repeat; border: 1px dashed #444; display: grid; place-items: center; color: #666; font-size: 12px; text-align: center; padding: 8px; }
+.pthumb.has { border-style: solid; border-color: #333; }
+.file { position: relative; overflow: hidden; }
+.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.unit { display: flex; align-items: center; gap: 8px; }
+.unit .inp { width: 90px; }
+.unit span { color: var(--muted); font-size: 14px; }
+.card-box { background: var(--s1); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 14px; margin-bottom: 14px; }
+.card-box h3 { margin: 0; font-size: 17px; }
+.switch-row { display: flex; align-items: center; gap: 12px; }
+.ed { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.ed b { display: block; }
+.ed span { font-size: 13px; color: var(--muted); }
+.ed .role { margin-left: auto; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+
+/* Preview */
+.preview { position: sticky; top: 84px; }
+.pv-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-height: 38px; }
+.pv-head b { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.pv-close { margin-left: auto; display: none !important; }
+.frame-wrap { background: #1c1c1c; border: 1px solid #333; border-radius: 24px; padding: 16px; box-shadow: 0 14px 40px rgba(0, 0, 0, .5); }
+.pv-box { position: relative; width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden; background: #000; }
+.pv-box iframe { position: absolute; top: 0; left: 0; width: 1024px; height: 768px; border: 0; transform-origin: 0 0; }
+.pv-note { font-size: 13px; color: var(--muted); margin: 12px 4px 0; }
+.pv-note.warn { color: var(--amber); }
+.fab { display: none; }
+
+#toast { position: fixed; left: 50%; bottom: 24px; z-index: 60; transform: translate(-50%, 20px); opacity: 0; transition: opacity .25s, transform .25s; background: #fff; color: #000; font-weight: 700; padding: 12px 18px; border-radius: 10px; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* Phones and small tablets: tabs across the top, preview behind a button */
+@media (max-width: 1099px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 14px 14px 90px; }
+  .tabs { position: static; flex-direction: row; overflow-x: auto; gap: 6px; margin: 0 -14px; padding: 0 14px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; white-space: nowrap; background: var(--s1); }
+  .tab.on { box-shadow: inset 0 -3px var(--red); }
+  .preview { display: none; }
+  body.pv-open .preview { display: flex; flex-direction: column; justify-content: center; position: fixed; inset: 0; z-index: 50; padding: 16px; background: rgba(0, 0, 0, .94); }
+  body.pv-open .pv-close { display: inline-flex !important; }
+  body.pv-open .frame-wrap { width: min(100%, calc((100vh - 150px) * 4 / 3 + 34px)); margin: 0 auto; padding: 10px; border-radius: 16px; }
+  .fab { display: inline-flex; position: fixed; right: 16px; bottom: 16px; z-index: 30; box-shadow: 0 6px 20px rgba(0, 0, 0, .5); }
+}
+@media (max-width: 640px) {
+  .bar .tg { height: 24px; }
+  .bar h1 { font-size: 18px; flex: 1; }
+  .avatar { order: 1; }
+  .status { order: 2; flex: 1; margin-left: 0; }
+  #discard { order: 3; }
+  #publish { order: 4; }
+  #toast { bottom: 84px; }
+  .pane-head h2 { font-size: 26px; }
+  .two, .three { grid-template-columns: 1fr; }
+}
+.signin-card .err { color: var(--amber); }
+.ed .you { color: var(--muted); font-weight: 600; font-size: 13px; }
+.addrow { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; }
+.addr { font-family: ui-monospace, Consolas, monospace; font-size: 14px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; word-break: break-all; user-select: all; }
+@media (max-width: 640px) { .addrow { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="signin" id="loading">
+  <div class="signin-card"><img class="tg" src="img/tommyguns.png" alt="Tommy Gun's original barbershop"><p class="fine">Loading…</p></div>
+</div>
+
+<div class="signin" id="signin" hidden>
+  <div class="signin-card">
+    <img class="tg" src="img/tommyguns.png" alt="Tommy Gun's original barbershop">
+    <img class="cd" src="img/carindale.png" alt="Carindale">
+    <h1 class="cond">Notice Board Editor</h1>
+    <p id="signin-msg">Change what's on the Carindale iPad.</p>
+    <button class="gbtn" id="signin-btn">Sign in with Google</button>
+    <button class="gbtn" id="signout-btn" hidden>Sign out</button>
+    <p class="fine">Only people on the editors list can make changes.</p>
+    <div class="mocknote" id="mocknote" hidden>Demo: Firebase isn't connected yet, so this button just opens the editor.</div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="bar">
+    <img class="tg" src="img/tommyguns.png" alt="Tommy Gun's">
+    <h1 class="cond">Notice Board <span>Editor</span></h1>
+    <div class="status" id="status"><i></i><span></span></div>
+    <button class="btn ghost small" id="discard" hidden>Discard changes</button>
+    <button class="btn red" id="publish" disabled>Publish</button>
+    <button class="avatar" id="avatar" title="Sign out">C</button>
+  </header>
+  <div class="mock-strip" id="mock-strip" hidden>Demo: Firebase isn't connected yet. Sign-in and Publish are pretend, and nothing is saved.</div>
+  <div class="layout">
+    <nav class="tabs" id="tabs"></nav>
+    <section id="pane"></section>
+    <aside class="preview">
+      <div class="pv-head"><b>Live preview</b><button class="btn ghost small pv-close" id="pv-close">Close</button></div>
+      <div class="frame-wrap"><div class="pv-box" id="pv-box"><iframe id="frame" title="Board preview" tabindex="-1"></iframe></div></div>
+      <p class="pv-note" id="pv-note"></p>
+    </aside>
+  </div>
+  <button class="btn red fab" id="fab">Preview</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const FB_VERSION = '12.4.0';
+  const CFG = window.TG_FIREBASE || {};
+  // Live: config.js has the Firebase settings. Otherwise the editor runs as a demo that saves nothing.
+  const LIVE = !!(CFG.apiKey && CFG.projectId);
+
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const uid = () => 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const pad = n => String(n).padStart(2, '0');
+  const DAY3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const LISTS = ['updates', 'events', 'notices'];
+  const ICON = {
+    up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
+    down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+    trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v4M8 20h8"/></svg>',
+    cal: '<svg viewBox="0 0 24 24" fill="none" stroke="#ddd" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+    img: '<svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M20 16l-5-5-9 9"/></svg>',
+  };
+
+  const frame = $('#frame'), pane = $('#pane');
+  let fb = null;                  // Firebase modules and handles, when LIVE
+  let user = null, role = 'Owner';
+  let board = null, published = null, publishedAt = 0, loadedStamp = 0, overwriteArmed = false;
+  let tab = 'updates', openId = null;
+  // People who can make changes. Live: loaded from the editors collection when Settings opens.
+  let editors = LIVE ? null : [
+    { email: 'you@gmail.com', name: 'Chris', role: 'Owner' },
+    { email: 'manager@example.com', name: 'Shop manager', role: 'Editor' },
+  ];
+  // The board in the preview frame hands over its starter content when it loads.
+  let resolveStarter;
+  const starter = new Promise(r => { resolveStarter = r; });
+
+  const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const shortDate = k => {
+    if (!k) return '';
+    const [y, m, d] = k.split('-').map(Number);
+    return `${DAY3[new Date(y, m - 1, d).getDay()]} ${d} ${MONTHS[m - 1].slice(0, 3)}`;
+  };
+  const ago = t => {
+    const m = Math.round((Date.now() - t) / 60000), h = Math.round(m / 60), d = Math.round(h / 24);
+    return m < 1 ? 'just now' : m === 1 ? '1 minute ago' : m < 60 ? `${m} minutes ago` : h === 1 ? '1 hour ago' : h < 24 ? `${h} hours ago` : d === 1 ? 'yesterday' : `${d} days ago`;
+  };
+  const isDirty = () => !!board && JSON.stringify(board) !== JSON.stringify(published);
+
+  function normalise(b) {
+    b.settings = b.settings || { updateSecs: 9, slideSecs: 10, noticeSecs: 12 };
+    b.champion = b.champion || { name: '', month: MONTHS[new Date().getMonth()], why: '' };
+    LISTS.forEach(k => { b[k] = b[k] || []; });
+    return b;
+  }
+
+  // Same rules the board uses to decide what shows today.
+  function itemState(x) {
+    const t = todayKey();
+    if (x.on === false) return ['off', 'Off'];
+    if (x.type === 'poster' ? !x.image : !(x.title || x.text)) return ['off', x.type === 'poster' ? "No image yet, won't show" : "Empty, won't show"];
+    if (x.from && x.from > t) return ['soon', `Starts ${shortDate(x.from)}`];
+    if (x.until && x.until < t) return ['off', `Ended ${shortDate(x.until)}`];
+    return ['live', x.until ? `Showing until ${shortDate(x.until)}` : 'Showing'];
+  }
+
+  const findItem = id => { for (const k of LISTS) { const x = board[k].find(i => i.id === id); if (x) return x; } };
+  const keyOf = id => LISTS.find(k => board[k].some(i => i.id === id));
+  function targetOf(el) {
+    const it = el.closest('.item');
+    if (it) return findItem(it.dataset.id);
+    const box = el.closest('[data-obj]');
+    return box ? board[box.dataset.obj] : null;
+  }
+  function setPath(obj, path, v) {
+    const p = path.split('.');
+    let o = obj;
+    while (p.length > 1) o = o[p.shift()];
+    o[p[0]] = v;
+  }
+
+  /* ---------- Screens ---------- */
+  function screen(name) {
+    $('#loading').hidden = name !== 'loading';
+    $('#signin').hidden = name !== 'signin';
+    $('#app').hidden = name !== 'app';
+  }
+
+  // msg: a problem to show instead of the usual greeting; signedIn: offer Sign out instead of Sign in.
+  function showSignin(msg, signedIn) {
+    $('#signin-msg').textContent = msg || "Change what's on the Carindale iPad.";
+    $('#signin-msg').className = msg ? 'err' : '';
+    $('#signin-btn').hidden = !!signedIn;
+    $('#signout-btn').hidden = !signedIn;
+    screen('signin');
+  }
+
+  /* ---------- Tabs ---------- */
+  const TABS = [
+    ['updates', 'Latest Updates'],
+    ['events', 'Competitions & Events'],
+    ['champion', 'Store Champion'],
+    ['notices', 'Notices & Quotes'],
+    ['settings', 'Settings'],
+  ];
+  function renderTabs() {
+    $('#tabs').innerHTML = TABS.map(([k, name]) => {
+      let n = '';
+      if (LISTS.includes(k)) n = `<span class="n" title="Showing today">${board[k].filter(x => itemState(x)[0] === 'live').length}</span>`;
+      if (k === 'champion') n = `<span class="n">${board.champion.on === false || !board.champion.name ? 'Off' : 'On'}</span>`;
+      return `<button class="tab ${k === tab ? 'on' : ''}" data-tab="${k}">${esc(name)}${n}</button>`;
+    }).join('');
+  }
+
+  /* ---------- Pane ---------- */
+  const HEADS = {
+    updates: ['Latest Updates', 'Left column of the board. When there are more than fit, the top one slides away every few seconds.'],
+    events: ['Competitions & Events', 'Middle column. Posters and cards take turns, in this order.'],
+    champion: ['Store Champion', 'The red panel on the right.'],
+    notices: ['Notices & Quotes', 'Bottom right. One at a time, in this order.'],
+    settings: ['Settings', 'How the board behaves, and who can change it.'],
+  };
+  const ADDS = {
+    updates: [['update', '+ Add update']],
+    events: [['poster', '+ Poster'], ['comp', '+ Competition'], ['event', '+ Event card']],
+    notices: [['notice', '+ Notice'], ['quote', '+ Quote']],
+  };
+
+  function renderPane() {
+    const [h, p] = HEADS[tab];
+    let html = `<div class="pane-head"><h2 class="cond">${esc(h)}</h2><p>${esc(p)}</p></div>`;
+    if (ADDS[tab]) html += `<div class="adds">${ADDS[tab].map(([k, l]) => `<button class="btn small" data-act="add" data-kind="${k}">${l}</button>`).join('')}</div>`;
+    if (LISTS.includes(tab)) {
+      const list = board[tab];
+      html += list.length ? list.map((x, i) => itemHTML(tab, x, i, list.length)).join('') : '<div class="empty-list">Nothing here yet.</div>';
+    } else if (tab === 'champion') {
+      html += championHTML();
+    } else {
+      html += settingsHTML();
+    }
+    pane.innerHTML = html;
+  }
+
+  function itemHTML(key, x, i, n) {
+    const open = x.id === openId;
+    return `<div class="item${open ? ' open' : ''}${x.on === false ? ' off' : ''}" data-id="${esc(x.id)}">
+      <div class="row">
+        <div class="move">
+          <button data-act="up" aria-label="Move up"${i === 0 ? ' disabled' : ''}>${ICON.up}</button>
+          <button data-act="down" aria-label="Move down"${i === n - 1 ? ' disabled' : ''}>${ICON.down}</button>
+        </div>
+        <div class="it-main" data-act="open" tabindex="0">${headHTML(key, x)}</div>
+        <label class="switch" title="Show on the board"><input type="checkbox" data-f="on" aria-label="Show on the board"${x.on !== false ? ' checked' : ''}><span></span></label>
+      </div>
+      ${open ? `<div class="form">${formHTML(key, x)}</div>` : ''}
+    </div>`;
+  }
+
+  const titleLine = (t, ph) => t ? `<div class="title">${esc(t)}</div>` : `<div class="title ph">${esc(ph)}</div>`;
+
+  function headHTML(key, x) {
+    const [cls, st] = itemState(x);
+    const state = `<span class="state ${cls}">${esc(st)}</span>`;
+    if (key === 'updates') {
+      return `<div class="it-top"><span class="chip ${esc(String(x.tag).toLowerCase())}">${esc(x.tag)}</span>${state}</div>${titleLine(x.title, 'New update')}<div class="sub">${esc(x.text)}</div>`;
+    }
+    if (key === 'notices') {
+      const q = x.type === 'quote';
+      return `<div class="it-top"><span class="chip">${q ? 'Quote' : 'Notice'}</span>${state}</div>${titleLine(x.text, q ? 'New quote' : 'New notice')}`;
+    }
+    let thumb, kind, sub;
+    if (x.type === 'poster') {
+      thumb = x.image ? `<div class="thumb" style="background-image:url('${esc(x.image)}')"></div>` : `<div class="thumb">${ICON.img}</div>`;
+      kind = 'Poster';
+      sub = x.date ? `Event day ${shortDate(x.date)}` : 'No event day';
+    } else if (x.type === 'comp') {
+      thumb = `<div class="thumb comp">${ICON.trophy}</div>`;
+      kind = 'Competition';
+      sub = `${x.ends ? `Ends ${shortDate(x.ends)}` : 'No end date'} · ${(x.leaders || []).filter(l => l.name).length} on the leaderboard`;
+    } else {
+      thumb = `<div class="thumb event">${ICON.cal}</div>`;
+      kind = 'Event card';
+      sub = x.date ? shortDate(x.date) : 'No date';
+    }
+    return `<div class="ev">${thumb}<div class="ev-t"><div class="it-top"><span class="chip">${kind}</span>${state}</div>${titleLine(x.title, 'Untitled')}<div class="sub">${esc(sub)}</div></div></div>`;
+  }
+
+  /* Field builders */
+  const txt = (f, label, v, max, ph = '') =>
+    `<div class="field"><label>${label}<span class="count">${String(v || '').length}/${max}</span></label><input class="inp" type="text" data-f="${f}" value="${esc(v)}" maxlength="${max}" placeholder="${esc(ph)}" aria-label="${esc(label)}"></div>`;
+  const area = (f, label, v, max, ph = '') =>
+    `<div class="field"><label>${label}<span class="count">${String(v || '').length}/${max}</span></label><textarea class="inp" rows="3" data-f="${f}" maxlength="${max}" placeholder="${esc(ph)}" aria-label="${esc(label)}">${esc(v)}</textarea></div>`;
+  const dateF = (f, label, v, help = '') =>
+    `<div class="field"><label>${label}</label><input class="inp" type="date" data-f="${f}" value="${esc(v)}" aria-label="${esc(label)}">${help ? `<p class="help">${help}</p>` : ''}</div>`;
+  const seg = (f, label, v, opts) =>
+    `<div class="field"><span class="flabel">${label}</span><div class="seg" data-f="${f}">${opts.map(([val, l]) => `<button type="button" data-act="seg" data-v="${esc(val)}" class="${(v || '') === val ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
+  const showDates = x => `<div class="two">${dateF('from', 'First day shown', x.from, 'Blank: starts now')}${dateF('until', 'Last day shown', x.until, 'Blank: stays until you remove it')}</div>`;
+  const FOOT = '<div class="foot"><button type="button" class="btn ghost small" data-act="close">Done</button><button type="button" class="btn del small" data-act="del">Delete</button></div>';
+
+  function formHTML(key, x) {
+    if (key === 'updates') {
+      return seg('tag', 'Tag', x.tag, [['New', 'New'], ['Staff', 'Staff'], ['Stock', 'Stock'], ['Reminder', 'Reminder']]) +
+        txt('title', 'Heading', x.title, 40) + area('text', 'Message', x.text, 110) +
+        txt('when', 'Corner label', x.when, 12, 'e.g. 22 Oct, Ongoing, Daily') + showDates(x) + FOOT;
+    }
+    if (key === 'notices') {
+      return seg('type', 'Type', x.type, [['notice', 'Notice'], ['quote', 'Quote']]) + area('text', 'Text', x.text, 80) + showDates(x) + FOOT;
+    }
+    if (x.type === 'poster') {
+      return posterPick(x) + txt('title', 'Name, used for the "Next up" countdown', x.title, 40, 'e.g. Halloween Dress Up Day') +
+        `<div class="two">${dateF('date', 'Event day', x.date, 'Optional. Counts down under Next up.')}</div>` + showDates(x) +
+        '<p class="help" style="margin:0">Tip: make the last day shown the event day, and the poster takes itself down.</p>' + FOOT;
+    }
+    if (x.type === 'comp') {
+      return txt('label', 'Badge', x.label, 16) + txt('title', 'Title', x.title, 18) + area('text', 'Details', x.text, 100) +
+        `<div class="two">${dateF('ends', 'Comp ends', x.ends, 'Counts down at the bottom of the card.')}</div>` + leadersHTML(x) + showDates(x) + FOOT;
+    }
+    return txt('label', 'Badge', x.label, 16) + txt('title', 'Title', x.title, 18) + `<div class="two">${dateF('date', 'Event day', x.date)}</div>` +
+      area('text', 'Details', x.text, 100) + seg('icon', 'Picture', x.icon || '', [['', 'None'], ['mo', 'Moustache']]) + showDates(x) + FOOT;
+  }
+
+  function posterPick(x) {
+    const img = x.image ? ` style="background-image:url('${esc(x.image)}')"` : '';
+    return `<div class="pick">
+      <div class="pthumb${x.image ? ' has' : ''}"${img}>${x.image ? '' : 'No image yet'}</div>
+      <div>
+        <label class="btn file">${x.image ? 'Change image' : 'Choose image'}<input type="file" accept="image/*" data-act="file"></label>
+        <p class="help">${esc(x.imageInfo || 'Any picture from your phone or computer. It is turned into a JPG an old iPad can show. Tall 2:3 posters fill the space best.')}</p>
+      </div>
+    </div>`;
+  }
+
+  function leadersHTML(x) {
+    const leaders = x.leaders || [];
+    const rows = leaders.map((l, j) => `<div class="lrow">
+      <input class="inp" type="text" data-f="leaders.${j}.name" value="${esc(l.name)}" maxlength="12" placeholder="Name" aria-label="Name">
+      <input class="inp" type="number" inputmode="numeric" data-f="leaders.${j}.points" value="${esc(l.points)}" placeholder="Points" aria-label="Points">
+      <button type="button" class="x" data-act="lb-del" data-j="${j}" aria-label="Remove">&times;</button></div>`).join('');
+    return `<div class="field"><span class="flabel">Leaderboard<span class="note">The board sorts by points</span></span>${rows}` +
+      (leaders.length < 5 ? '<button type="button" class="btn ghost small" data-act="lb-add">+ Add person</button>' : '') + '</div>';
+  }
+
+  function championHTML() {
+    const c = board.champion;
+    return `<div class="card-box" data-obj="champion">
+      <div class="switch-row"><label class="switch"><input type="checkbox" data-f="on" aria-label="Show the Store Champion panel"${c.on !== false ? ' checked' : ''}><span></span></label><b>Show the Store Champion panel</b></div>
+      ${txt('name', 'Name', c.name, 14)}
+      <div class="field"><label>Month</label><select class="inp" data-f="month" aria-label="Month">${MONTHS.map(m => `<option${m === c.month ? ' selected' : ''}>${m}</option>`).join('')}</select></div>
+      ${area('why', 'Why they won', c.why, 60)}
+    </div>`;
+  }
+
+  function settingsHTML() {
+    const s = board.settings, owner = role === 'Owner', me = (user && user.email || '').toLowerCase();
+    const num = (f, label) => `<div class="field"><label>${label}</label><div class="unit"><input class="inp" type="number" inputmode="numeric" min="5" max="60" data-f="${f}" value="${esc(s[f])}" aria-label="${esc(label)}"><span>seconds</span></div></div>`;
+    const people = editors === null ? '<p class="help">Loading…</p>' : editors.map((e, i) => `<div class="ed">
+        <div><b>${esc(e.name)}${e.email === me ? ' <span class="you">(you)</span>' : ''}</b><span>${esc(e.email)}</span></div>
+        <span class="role">${esc(e.role)}</span>
+        ${owner && e.role !== 'Owner' ? `<button type="button" class="btn del small" data-act="ed-del" data-j="${i}">Remove</button>` : ''}
+      </div>`).join('');
+    const add = owner
+      ? `<div class="addrow"><input class="inp" type="text" id="ed-name" placeholder="Their name" aria-label="Their name" maxlength="30"><input class="inp" type="email" id="ed-email" placeholder="Their Gmail address" aria-label="Their Gmail address"><button type="button" class="btn small" data-act="ed-add">Add</button></div>`
+      : '<p class="help" style="margin:0">Only the owner can change this list.</p>';
+    const boardUrl = location.href.replace(/editor\.html.*$/, '');
+    return `<div class="card-box" data-obj="settings"><h3>Rotation</h3>
+        <div class="three">${num('updateSecs', 'Updates move every')}${num('slideSecs', 'Posters and cards change every')}${num('noticeSecs', 'Notices change every')}</div>
+      </div>
+      <div class="card-box"><h3>Who can make changes</h3>
+        <p class="help" style="margin:0">They sign in here with their Google account. Nobody else can publish.</p>
+        <div>${people}</div>${add}
+      </div>
+      <div class="card-box"><h3>The iPad</h3>
+        <p class="help" style="margin:0">Open this address on the iPad:</p>
+        <div class="addr">${esc(boardUrl)}</div>
+        <p class="help" style="margin:0">It checks for published changes every minute, so there's nothing to do on the iPad itself. If the Wi-Fi drops, it keeps showing what it last had.</p>
+      </div>`;
+  }
+
+  /* ---------- Editing ---------- */
+  function refreshHead(el) {
+    const it = el.closest('.item');
+    if (it) {
+      const x = findItem(it.dataset.id);
+      it.querySelector('.it-main').innerHTML = headHTML(keyOf(x.id), x);
+      it.classList.toggle('off', x.on === false);
+    }
+    renderTabs();
+  }
+
+  pane.addEventListener('input', e => {
+    const el = e.target, f = el.dataset.f, obj = f && targetOf(el);
+    if (!obj || el.type === 'checkbox' || el.type === 'file') return;
+    setPath(obj, f, el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value);
+    const count = el.closest('.field')?.querySelector('.count');
+    if (count) {
+      count.textContent = `${el.value.length}/${el.maxLength}`;
+      count.classList.toggle('max', el.value.length >= el.maxLength);
+    }
+    refreshHead(el);
+    changed();
+  });
+
+  pane.addEventListener('change', e => {
+    const el = e.target;
+    if (el.type === 'checkbox' && el.dataset.f) {
+      setPath(targetOf(el), el.dataset.f, el.checked);
+      refreshHead(el);
+      changed();
+    } else if (el.type === 'file' && el.files[0]) {
+      loadPoster(el);
+    }
+  });
+
+  pane.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.matches('.it-main')) e.target.click();
+  });
+
+  pane.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b || b.disabled || b.dataset.act === 'file') return;
+    const act = b.dataset.act, id = b.closest('.item')?.dataset.id;
+    const list = id ? board[keyOf(id)] : null, i = list ? list.findIndex(x => x.id === id) : -1;
+    switch (act) {
+      case 'open':
+        openId = openId === id ? null : id;
+        renderPane();
+        sendPreview();
+        break;
+      case 'close':
+        openId = null;
+        renderPane();
+        sendPreview();
+        break;
+      case 'up':
+      case 'down': {
+        const j = act === 'up' ? i - 1 : i + 1;
+        [list[i], list[j]] = [list[j], list[i]];
+        renderPane();
+        changed();
+        break;
+      }
+      case 'del':
+        if (!armed(b, 'Tap again to delete')) return;
+        list.splice(i, 1);
+        openId = null;
+        renderPane();
+        renderTabs();
+        changed();
+        toast('Deleted');
+        break;
+      case 'seg':
+        setPath(targetOf(b), b.parentNode.dataset.f, b.dataset.v);
+        renderPane();
+        renderTabs();
+        changed();
+        break;
+      case 'add':
+        addItem(b.dataset.kind);
+        break;
+      case 'lb-add':
+        findItem(id).leaders.push({ name: '', points: '' });
+        renderPane();
+        changed();
+        pane.querySelector('.item.open .lrow:last-of-type .inp')?.focus();
+        break;
+      case 'lb-del':
+        findItem(id).leaders.splice(+b.dataset.j, 1);
+        renderPane();
+        changed();
+        break;
+      case 'ed-add':
+        addEditor();
+        break;
+      case 'ed-del':
+        if (!armed(b, 'Tap again')) return;
+        removeEditor(editors[+b.dataset.j]);
+        break;
+    }
+  });
+
+  // Two-tap confirm: the first tap arms the button for three seconds.
+  function armed(b, text) {
+    if (b.classList.contains('arm')) return true;
+    const old = b.textContent;
+    b.classList.add('arm');
+    b.textContent = text;
+    setTimeout(() => { b.classList.remove('arm'); b.textContent = old; }, 3000);
+    return false;
+  }
+
+  function addItem(kind) {
+    const d = new Date(), id = uid();
+    const NEW = {
+      update: { id, tag: 'New', title: '', text: '', when: `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}` },
+      poster: { id, type: 'poster', image: '', title: '', date: '' },
+      comp: { id, type: 'comp', label: 'Competition', title: '', text: '', ends: '', leaders: [{ name: '', points: '' }] },
+      event: { id, type: 'event', label: 'Coming up', title: '', date: '', text: '', icon: '' },
+      notice: { id, type: 'notice', text: '' },
+      quote: { id, type: 'quote', text: '' },
+    };
+    const key = { update: 'updates', notice: 'notices', quote: 'notices' }[kind] || 'events';
+    board[key].unshift(NEW[kind]);
+    openId = id;
+    renderPane();
+    renderTabs();
+    changed();
+    if (kind !== 'poster') pane.querySelector('.item.open input[type=text], .item.open textarea')?.focus();
+  }
+
+  /* ---------- Posters: any picture in, an old-iPad-friendly JPG out ---------- */
+  function convertPoster(blob) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob), img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, 900 / img.naturalWidth, 1350 / img.naturalHeight);
+        const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        const g = c.getContext('2d');
+        g.fillStyle = '#000';
+        g.fillRect(0, 0, w, h);
+        g.drawImage(img, 0, 0, w, h);
+        // Keep each poster well under the database's 1 MB-per-document limit.
+        let q = 0.84, data = c.toDataURL('image/jpeg', q);
+        while (data.length > 650000 && q > 0.5) { q -= 0.08; data = c.toDataURL('image/jpeg', q); }
+        URL.revokeObjectURL(url);
+        resolve({ data, w, h, kb: Math.round(data.length * 0.75 / 1024) });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That picture couldn't be opened. Try a JPG or PNG.")); };
+      img.src = url;
+    });
+  }
+
+  async function loadPoster(input) {
+    const x = targetOf(input), help = input.closest('.pick').querySelector('.help');
+    help.textContent = 'Converting…';
+    try {
+      const p = await convertPoster(input.files[0]);
+      x.image = p.data;
+      x.posterId = '';  // a new image is uploaded as a new poster when you publish
+      x.imageInfo = `Converted to JPG: ${p.w} × ${p.h}, ${p.kb} KB.` +
+        (Math.abs(p.w / p.h - 2 / 3) > 0.08 ? " It isn't a tall 2:3 shape, so it will have black bars on the board." : '');
+      renderPane();
+      renderTabs();
+      changed();
+    } catch (err) {
+      help.textContent = err.message;
+    }
+  }
+
+  /* ---------- Preview and status ---------- */
+  let pvTimer = 0;
+  function sendPreview() {
+    clearTimeout(pvTimer);
+    pvTimer = setTimeout(() => {
+      if (!board) return;
+      if (frame.contentWindow) frame.contentWindow.postMessage({ type: 'board', board, focus: openId }, location.origin);
+      const x = openId && findItem(openId), note = $('#pv-note');
+      const hidden = x && itemState(x)[0] !== 'live';
+      note.className = hidden ? 'pv-note warn' : 'pv-note';
+      note.textContent = hidden ? "The item you're editing isn't showing today, so it isn't in the preview." : 'This is your draft. The iPad only changes when you press Publish.';
+    }, 150);
+  }
+
+  function updateStatus() {
+    const dirty = isDirty();
+    $('#status').classList.toggle('dirty', dirty);
+    $('#status span').textContent = dirty ? 'Unpublished changes' : publishedAt ? `Published ${ago(publishedAt)}` : 'Nothing published yet';
+    $('#publish').disabled = !dirty;
+    $('#discard').hidden = !dirty;
+  }
+
+  function changed() {
+    updateStatus();
+    sendPreview();
+  }
+
+  function renderAll() {
+    renderTabs();
+    renderPane();
+    changed();
+  }
+
+  let toastTimer = 0;
+  function toast(msg, secs = 2.6) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('on'), secs * 1000);
+  }
+
+  /* ---------- Firebase ---------- */
+  async function startLive() {
+    try {
+      const base = `https://www.gstatic.com/firebasejs/${FB_VERSION}/`;
+      const [appMod, A, F] = await Promise.all([
+        import(base + 'firebase-app.js'),
+        import(base + 'firebase-auth.js'),
+        import(base + 'firebase-firestore.js'),
+      ]);
+      const app = appMod.initializeApp(CFG);
+      fb = { A, F, auth: A.getAuth(app), db: F.getFirestore(app) };
+    } catch (err) {
+      showSignin("The editor couldn't load. Check the internet connection, then reload the page.", false);
+      $('#signin-btn').hidden = true;
+      return;
+    }
+    fb.A.onAuthStateChanged(fb.auth, u => {
+      user = u;
+      if (u) openEditor();
+      else showSignin();
+    });
+  }
+
+  async function signIn() {
+    const { A, auth } = fb;
+    const provider = new A.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try {
+      await A.signInWithPopup(auth, provider);
+    } catch (err) {
+      if (err.code === 'auth/popup-blocked') return A.signInWithRedirect(auth, provider);
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+      toast(err.code === 'auth/unauthorized-domain'
+        ? "This web address isn't allowed to sign in yet. Add it in Firebase under Authentication > Settings > Authorized domains."
+        : "Sign-in didn't work. Please try again.", 6);
+    }
+  }
+
+  async function openEditor() {
+    const { F, db } = fb, email = (user.email || '').toLowerCase();
+    screen('loading');
+    try {
+      const me = await F.getDoc(F.doc(db, 'editors', email));
+      if (!me.exists()) throw Object.assign(new Error('not listed'), { code: 'permission-denied' });
+      role = me.data().role === 'Owner' ? 'Owner' : 'Editor';
+      await loadContent();
+    } catch (err) {
+      showSignin(err.code === 'permission-denied'
+        ? `${user.email} isn't on the list of people who can make changes. Ask the owner to add it under Settings.`
+        : "The board couldn't be loaded. Check the internet connection, then reload the page.", true);
+      return;
+    }
+    $('#avatar').textContent = (user.displayName || email).charAt(0).toUpperCase();
+    $('#avatar').title = `Signed in as ${user.email}. Tap to sign out.`;
+    editors = null;
+    screen('app');
+    renderAll();
+  }
+
+  // Loads the published content, or the starter content if nothing has been published yet.
+  async function loadContent() {
+    const { F, db } = fb;
+    const snap = await F.getDoc(F.doc(db, 'board', 'content'));
+    if (!snap.exists()) {
+      board = normalise(clone(await starter));
+      published = normalise({});
+      loadedStamp = publishedAt = 0;
+      return;
+    }
+    const d = snap.data();
+    board = normalise(JSON.parse(d.json));
+    loadedStamp = publishedAt = d.publishedAt ? d.publishedAt.toMillis() : 0;
+    await Promise.all(board.events.filter(e => e.type === 'poster' && e.posterId).map(async e => {
+      const p = await F.getDoc(F.doc(db, 'posters', e.posterId));
+      e.image = p.exists() ? p.data().data : '';
+    }));
+    published = clone(board);
+  }
+
+  async function publishLive() {
+    const { F, db } = fb, ref = F.doc(db, 'board', 'content');
+    // Someone else may have published since this page loaded: ask before replacing their changes.
+    const now = await F.getDoc(ref);
+    const theirs = now.exists() && now.data().publishedAt ? now.data().publishedAt.toMillis() : 0;
+    if (theirs && theirs !== loadedStamp && !overwriteArmed) {
+      overwriteArmed = true;
+      setTimeout(() => { overwriteArmed = false; }, 15000);
+      toast(`${now.data().publishedBy || 'Someone else'} published changes ${ago(theirs)}. Press Publish again to replace them with yours.`, 8);
+      throw Object.assign(new Error('conflict'), { code: 'conflict' });
+    }
+    overwriteArmed = false;
+    // New or changed posters go up as their own documents.
+    for (const e of board.events) {
+      if (e.type !== 'poster' || !e.image || e.posterId) continue;
+      let data = e.image;
+      if (!data.startsWith('data:')) data = (await convertPoster(await (await fetch(data)).blob())).data;  // a starter poster file
+      const id = uid();
+      await F.setDoc(F.doc(db, 'posters', id), { data, by: user.email });
+      e.posterId = id;
+      e.image = data;
+    }
+    const out = clone(board);
+    out.events.forEach(e => { delete e.image; });
+    await F.setDoc(ref, { json: JSON.stringify(out), publishedAt: F.serverTimestamp(), publishedBy: user.email });
+    // Remove posters the board no longer uses.
+    const used = new Set(board.events.map(e => e.posterId).filter(Boolean));
+    const gone = (published.events || []).map(e => e.posterId).filter(id => id && !used.has(id));
+    await Promise.all(gone.map(id => F.deleteDoc(F.doc(db, 'posters', id)).catch(() => {})));
+    const after = await F.getDoc(ref);
+    loadedStamp = publishedAt = after.data().publishedAt.toMillis();
+  }
+
+  async function loadEditors() {
+    const { F, db } = fb;
+    try {
+      const qs = await F.getDocs(F.collection(db, 'editors'));
+      editors = qs.docs.map(d => ({ email: d.id, name: d.data().name || d.id.split('@')[0], role: d.data().role === 'Owner' ? 'Owner' : 'Editor' }));
+    } catch (err) {
+      editors = [];
+      toast("The editors list couldn't be loaded.");
+    }
+    if (tab === 'settings') renderPane();
+  }
+
+  async function addEditor() {
+    const name = $('#ed-name').value.trim(), email = $('#ed-email').value.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) { toast('Type their Gmail address first'); return; }
+    const person = { email, name: name || email.split('@')[0], role: 'Editor' };
+    try {
+      if (LIVE) await fb.F.setDoc(fb.F.doc(fb.db, 'editors', email), { name: person.name, role: 'Editor' });
+      editors = editors.filter(e => e.email !== email).concat(person);
+      renderPane();
+      toast(`Added. ${person.name} can sign in now.`);
+    } catch (err) {
+      toast("Couldn't add them. Only the owner can change this list.");
+    }
+  }
+
+  async function removeEditor(person) {
+    try {
+      if (LIVE) await fb.F.deleteDoc(fb.F.doc(fb.db, 'editors', person.email));
+      editors = editors.filter(e => e !== person);
+      renderPane();
+      toast(`${person.name} removed`);
+    } catch (err) {
+      toast("Couldn't remove them. Only the owner can change this list.");
+    }
+  }
+
+  /* ---------- Buttons ---------- */
+  $('#publish').addEventListener('click', async () => {
+    const b = $('#publish');
+    b.disabled = true;
+    b.textContent = 'Publishing…';
+    try {
+      if (LIVE) await publishLive();
+      else { await new Promise(r => setTimeout(r, 700)); publishedAt = Date.now(); }
+      published = clone(board);
+      toast('Published. The iPad will show it within a minute.');
+    } catch (err) {
+      if (err.code !== 'conflict') {
+        toast(err.code === 'permission-denied'
+          ? "You're not allowed to publish. Ask the owner to add you under Settings."
+          : "Couldn't publish. Check the internet connection and try again.", 6);
+      }
+    }
+    b.textContent = 'Publish';
+    updateStatus();
+  });
+
+  $('#discard').addEventListener('click', e => {
+    if (!armed(e.currentTarget, 'Tap again to discard')) return;
+    board = clone(published);
+    openId = null;
+    renderAll();
+    toast('Changes discarded');
+  });
+
+  $('#tabs').addEventListener('click', e => {
+    const t = e.target.closest('[data-tab]');
+    if (!t) return;
+    tab = t.dataset.tab;
+    openId = null;
+    renderTabs();
+    renderPane();
+    sendPreview();
+    if (tab === 'settings' && LIVE) loadEditors();
+  });
+
+  $('#fab').addEventListener('click', () => document.body.classList.add('pv-open'));
+  $('#pv-close').addEventListener('click', () => document.body.classList.remove('pv-open'));
+
+  $('#signin-btn').addEventListener('click', () => {
+    if (LIVE) { signIn(); return; }
+    screen('app');
+    renderAll();
+  });
+  $('#signout-btn').addEventListener('click', () => fb.A.signOut(fb.auth));
+  $('#avatar').addEventListener('click', e => {
+    if (isDirty() && !armed(e.currentTarget, '!')) { toast('You have unpublished changes. Tap again to sign out anyway.', 3); return; }
+    if (LIVE) fb.A.signOut(fb.auth);
+    else showSignin();
+  });
+
+  window.addEventListener('beforeunload', e => {
+    if (isDirty()) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  function fitPreview() {
+    const w = $('#pv-box').clientWidth;
+    if (w) frame.style.transform = `scale(${w / 1024})`;
+  }
+  new ResizeObserver(fitPreview).observe($('#pv-box'));
+
+  window.addEventListener('message', e => {
+    if (e.origin !== location.origin || e.source !== frame.contentWindow || !e.data || e.data.type !== 'ready') return;
+    resolveStarter(e.data.board);
+    if (board) sendPreview();
+  });
+  frame.src = 'index.html?preview';
+  setInterval(() => { if (board) updateStatus(); }, 30000);
+
+  if (LIVE) {
+    startLive();
+  } else {
+    // Demo: start from the starter content and pretend it was published two hours ago.
+    $('#mocknote').hidden = false;
+    $('#mock-strip').hidden = false;
+    starter.then(s => {
+      board = normalise(clone(s));
+      published = clone(board);
+      publishedAt = Date.now() - 2 * 3600000;
+      showSignin();
+    });
+  }
+})();
+</script>
+</body>
+</html>

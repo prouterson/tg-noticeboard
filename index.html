@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="TG Notice Board">
+<meta name="format-detection" content="telephone=no">
+<title>TG Carindale Notice Board</title>
+<style>
+/* Sizes are in rem: 1rem = 16px on a 1024x768 iPad, scaled up for bigger screens by fit(). */
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0a0a0a; }
+body {
+  color: #fff;
+  font-family: -apple-system, "Helvetica Neue", "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+* { box-sizing: border-box; }
+::-webkit-scrollbar { display: none; }
+h2, ul, ol { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+.cond { font-family: "Avenir Next Condensed", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif; }
+
+#board { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; flex-direction: column; }
+
+/* Header */
+.top { flex: none; height: 4.75rem; padding: 0 1.25rem; background: #000; display: flex; align-items: center; }
+.logo-tg { display: block; height: 2.8rem; }
+.logo-cd { display: block; height: 2.7rem; margin-left: 1.6rem; }
+.top-title { margin-left: auto; font-size: 1.6rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+.pole { flex: none; height: .375rem; background: repeating-linear-gradient(-45deg, #E1000A 0, #E1000A .6rem, #fff .6rem, #fff 1.2rem, #000 1.2rem, #000 1.8rem); }
+
+/* Columns */
+.cols { flex: 1; min-height: 0; display: flex; padding: .875rem; }
+.col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.col-updates { flex: 1.12; }
+.col-events { flex: none; width: 25.75rem; margin: 0 .875rem; }
+.col-info { flex: .88; }
+.head { flex: none; height: 2.6rem; display: flex; align-items: flex-start; }
+.head .t { position: relative; padding-bottom: .45rem; font-size: 1.45rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; line-height: 1.1; }
+.head .t:after { content: ""; position: absolute; left: 0; bottom: 0; width: 2.25rem; height: .2rem; background: #E1000A; }
+
+/* Column 1: updates ticker */
+.view { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.view:after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2.5rem; background: linear-gradient(rgba(10,10,10,0), #0a0a0a); pointer-events: none; }
+.updates li { background: #161616; border-left: .25rem solid #3a3a3a; border-radius: .5rem; padding: .8rem 1rem .9rem; margin-bottom: .7rem; }
+.updates li.new { border-left-color: #E1000A; }
+.u-meta { display: flex; align-items: center; margin-bottom: .35rem; }
+.tag { font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: .22rem .5rem .18rem; border-radius: .25rem; background: #2e2e2e; color: #ddd; }
+.tag.new { background: #E1000A; color: #fff; }
+.tag.staff { background: #fff; color: #000; }
+.u-date { margin-left: auto; font-size: .8rem; font-weight: 600; color: #8a8a8a; }
+.u-title { font-size: 1.45rem; font-weight: 800; line-height: 1.1; }
+.u-text { font-size: 1rem; line-height: 1.35; color: #c6c6c6; margin-top: .3rem; }
+
+/* Column 2: competitions and events carousel */
+.dots { margin-left: auto; padding-top: .5rem; display: flex; }
+.dots i { display: block; width: .55rem; height: .55rem; border-radius: .3rem; background: #3a3a3a; margin-left: .4rem; transition: width .5s, background-color .5s; }
+.dots i.on { width: 1.5rem; background: #E1000A; }
+.stage { position: relative; flex: 1; min-height: 0; border-radius: .5rem; overflow: hidden; background: #000; }
+.slide { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; transition: opacity 1s ease; }
+.slide.on { opacity: 1; }
+.poster { background-position: center; background-repeat: no-repeat; background-size: contain; }
+.card { background: #161616; border-top: .4rem solid #E1000A; padding: 1.4rem 1.5rem 1.3rem; display: flex; flex-direction: column; }
+.c-mid { margin: auto 0; padding: 1rem 0; }
+.pill { align-self: flex-start; font-size: .75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; padding: .3rem .65rem .26rem; border-radius: .3rem; background: #E1000A; }
+.c-icon { display: block; width: 11rem; margin-bottom: .4rem; }
+.c-title { font-size: 3.6rem; font-weight: 800; line-height: .95; text-transform: uppercase; }
+.c-when { font-size: 1.35rem; font-weight: 800; color: #E1000A; margin-top: .5rem; }
+.c-text { font-size: 1.15rem; line-height: 1.4; color: #d0d0d0; margin-top: .8rem; }
+.lb-head { font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #8a8a8a; margin: 1.4rem 0 .5rem; }
+.lb li { display: flex; align-items: center; height: 2.7rem; }
+.lb .rk { flex: none; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: #2e2e2e; font-size: 1rem; font-weight: 800; line-height: 1.9rem; text-align: center; }
+.lb .nm { flex: none; width: 5.5rem; padding-left: .7rem; font-size: 1.25rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb .bar { flex: 1; height: .6rem; border-radius: .3rem; background: #262626; overflow: hidden; }
+.lb .bar i { display: block; height: 100%; border-radius: .3rem; background: #6e6e6e; }
+.lb .pt { flex: none; width: 2.8rem; text-align: right; font-size: 1.25rem; font-weight: 800; }
+.lb li:first-child .rk, .lb li:first-child .bar i { background: #E1000A; }
+.c-foot { margin-top: auto; padding-top: .9rem; border-top: 1px solid #2c2c2c; display: flex; align-items: baseline; font-size: 1rem; font-weight: 600; color: #9a9a9a; }
+.c-foot b { margin-left: auto; font-size: 1.35rem; font-weight: 800; color: #fff; }
+
+/* Column 3: quick info */
+.panel { flex: none; position: relative; overflow: hidden; border-radius: .5rem; background: #161616; padding: 1rem 1.15rem; margin-bottom: .75rem; }
+.label { font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #E1000A; }
+.time { font-size: 4.8rem; font-weight: 800; line-height: .9; white-space: nowrap; }
+.ampm { font-size: 1.5rem; font-weight: 800; color: #9a9a9a; margin-left: .25rem; }
+.date { font-size: 1.2rem; font-weight: 700; color: #d6d6d6; margin-top: .45rem; }
+.next { margin-top: .85rem; padding-top: .75rem; border-top: 1px solid #2c2c2c; }
+.next-title { font-size: 1.35rem; font-weight: 800; line-height: 1.15; margin-top: .25rem; }
+.next-when { font-size: .95rem; font-weight: 600; color: #9a9a9a; margin-top: .15rem; }
+.champ { background: #E1000A; }
+.champ .label { color: #fff; opacity: .85; }
+.champ .crown { position: absolute; right: 1.1rem; top: 2.3rem; width: 3rem; }
+.champ-name { position: relative; font-size: 2.8rem; font-weight: 800; line-height: 1; text-transform: uppercase; margin-top: .45rem; }
+.champ-why { position: relative; font-size: 1rem; line-height: 1.3; margin-top: .3rem; }
+.notice { flex: 1; min-height: 0; margin-bottom: 0; }
+.n-item { position: absolute; top: 1rem; right: 1.15rem; bottom: 1rem; left: 1.15rem; opacity: 0; transition: opacity .9s ease; }
+.n-item.on { opacity: 1; }
+.n-text { font-size: 1.3rem; font-weight: 700; line-height: 1.3; margin-top: .5rem; }
+.n-item.quote .n-text { color: #e8e8e8; }
+.n-mark { position: absolute; right: -.2rem; top: -.4rem; font-family: Georgia, serif; font-size: 4.5rem; line-height: 1; color: #E1000A; }
+.empty { color: #777; font-size: 1.1rem; font-weight: 600; padding: 1rem 0; }
+.card.blank { justify-content: center; align-items: center; }
+.card.blank img { width: 75%; }
+</style>
+</head>
+<body>
+<div id="board">
+  <header class="top">
+    <img class="logo-tg" src="img/tommyguns.png" alt="Tommy Gun's original barbershop">
+    <img class="logo-cd" src="img/carindale.png" alt="Carindale">
+    <div class="top-title cond">Notice Board</div>
+  </header>
+  <div class="pole"></div>
+  <main class="cols">
+    <section class="col col-updates">
+      <h2 class="head cond"><span class="t">Latest Updates</span></h2>
+      <div class="view"><ul class="updates" id="updates"></ul></div>
+    </section>
+    <section class="col col-events">
+      <h2 class="head cond"><span class="t">Competitions &amp; Events</span><span class="dots" id="dots"></span></h2>
+      <div class="stage" id="stage"></div>
+    </section>
+    <section class="col col-info">
+      <h2 class="head cond"><span class="t">Quick Info</span></h2>
+      <div class="panel">
+        <div class="time cond"><span id="time"></span><span class="ampm" id="ampm"></span></div>
+        <div class="date" id="date"></div>
+        <div class="next" id="next">
+          <div class="label">Next up</div>
+          <div class="next-title cond" id="next-title"></div>
+          <div class="next-when" id="next-when"></div>
+        </div>
+      </div>
+      <div class="panel champ" id="champ">
+        <svg class="crown" viewBox="0 0 64 48"><polygon points="6,42 6,12 20,26 32,6 44,26 58,12 58,42" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round"/></svg>
+        <div class="label" id="champ-label"></div>
+        <div class="champ-name cond" id="champ-name"></div>
+        <div class="champ-why" id="champ-why"></div>
+      </div>
+      <div class="panel notice" id="notices"></div>
+    </section>
+  </main>
+</div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* Starter content: what the editor offers before anything has been published, and what the board shows
+     while Firebase isn't set up (config.js). Once connected, the board shows only published content.
+     Dates are YYYY-MM-DD. Any item can have on: false, from and until (first and last day it shows). */
+  var STARTER = {
+    settings: { updateSecs: 9, slideSecs: 10, noticeSecs: 12 },
+    // Column 1. tag: New, Staff, Stock or Reminder.
+    updates: [
+      { id: "u1", tag: "New", title: "The boss lady is back", text: "She's back in the chair for Halloween Dress Up Day, Saturday 31 October.", when: "22 Oct", until: "2026-10-31" },
+      { id: "u2", tag: "Stock", title: "New styling clay in", text: "Matte finish, strong hold. Ask your barber to try some after your cut.", when: "21 Oct" },
+      { id: "u3", tag: "Reminder", title: "Check in at the front", text: "Walk-ins: add your name on the check-in screen so we know you're waiting.", when: "Ongoing" },
+      { id: "u4", tag: "Staff", title: "Roster is up", text: "Next week's roster is in the group chat. Shift swaps by Wednesday please.", when: "20 Oct" },
+      { id: "u5", tag: "New", title: "Welcome to the team", text: "Say g'day to Sam, our newest barber, starting Monday.", when: "19 Oct" },
+      { id: "u6", tag: "Staff", title: "Close-down checklist", text: "Stations wiped, tools disinfected and floors swept before lights off.", when: "Daily" }
+    ],
+    // Column 2, in this order. type: poster, comp or event.
+    events: [
+      { id: "e1", type: "poster", image: "posters/halloween-dress-up-day.jpg", title: "Halloween Dress Up Day", date: "2026-10-31", until: "2026-10-31" },
+      { id: "e2", type: "comp", label: "Competition", title: "Clipper Comp", ends: "2026-11-14",
+        text: "Top product seller this month takes home a set of pro cordless clippers.",
+        leaders: [{ name: "Jake", points: 42 }, { name: "Mia", points: 37 }, { name: "Tom", points: 29 }, { name: "Sam", points: 21 }] },
+      { id: "e3", type: "event", label: "Coming up", title: "Movember", date: "2026-11-01", until: "2026-11-30", icon: "mo",
+        text: "Grow a mo for men's health all November. Ask at the counter to join the Carindale team." }
+    ],
+    // Column 3.
+    champion: { name: "Jake", month: "October", why: "Most 5-star reviews this month. Legend." },
+    notices: [
+      { id: "n1", type: "notice", text: "Walk-in? Check in on the screen at the front so we know you're here." },
+      { id: "n2", type: "quote", text: "Good haircuts aren't cheap, and cheap haircuts aren't good." },
+      { id: "n3", type: "notice", text: "Gift cards are available at the counter." },
+      { id: "n4", type: "quote", text: "Every cut is a business card. Make it count." }
+    ]
+  };
+
+  var DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var MO_SVG = '<svg class="c-icon" viewBox="0 0 240 70"><path id="mo" fill="#fff" d="M120 26C108 12 88 10 74 20C62 28 50 38 34 38C22 38 14 30 16 20C8 26 8 38 18 46C32 56 58 54 78 46C96 39 110 38 120 42Z"/><use xlink:href="#mo" transform="translate(240 0) scale(-1 1)" xmlns:xlink="http://www.w3.org/1999/xlink"/></svg>';
+  // ?preview: running inside the editor, which sends draft content by postMessage.
+  var PREVIEW = /[?&]preview\b/.test(location.search);
+
+  var CFG = window.TG_FIREBASE || {};
+  // Live: connected to Firebase and running as the real board (not inside the editor).
+  var LIVE = !PREVIEW && !!(CFG.apiKey && CFG.projectId);
+  var EMPTY = { updates: [], events: [], notices: [] };
+  var data = LIVE ? EMPTY : STARTER, gen = 0;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function todayKey() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function parseDay(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function daysUntil(s) {
+    var n = new Date(), today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    return Math.round((parseDay(s) - today) / 86400000);
+  }
+  function shortDate(s) {
+    var d = parseDay(s);
+    return DAYS[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3);
+  }
+  function untilText(s, kind) {
+    var n = daysUntil(s);
+    if (kind === "ends") return n < 0 ? "Finished" : n === 0 ? "Ends today" : n === 1 ? "1 day to go" : n + " days to go";
+    return n < 0 ? "On now" : n === 0 ? "Today!" : n === 1 ? "Tomorrow" : "In " + n + " days";
+  }
+  // An item shows unless it is switched off, empty, or today is outside its from/until days.
+  // Posters also need an image.
+  function live(list) {
+    var t = todayKey();
+    return (list || []).filter(function (x) {
+      return x.on !== false && (!x.from || x.from <= t) && (!x.until || x.until >= t) &&
+        (x.type === "poster" ? !!x.image : !!(x.title || x.text));
+    });
+  }
+  function secs(name, def) {
+    var s = data.settings ? +data.settings[name] : 0;
+    return s >= 3 ? s : def;
+  }
+
+  // Scale every rem size to the screen so the layout fits any iPad.
+  function fit() {
+    if (!window.innerWidth) return;
+    var s = Math.min(window.innerWidth / 1024, window.innerHeight / 768);
+    document.documentElement.style.fontSize = (16 * s).toFixed(2) + "px";
+  }
+
+  function renderUpdates() {
+    var list = $("updates"), html = "";
+    live(data.updates).forEach(function (u) {
+      var t = String(u.tag || "").toLowerCase();
+      html += '<li class="' + esc(t) + '"><div class="u-meta"><span class="tag ' + esc(t) + '">' + esc(u.tag) +
+        '</span><span class="u-date">' + esc(u.when) + '</span></div><div class="u-title cond">' + esc(u.title) +
+        '</div><div class="u-text">' + esc(u.text) + '</div></li>';
+    });
+    list.style.transition = "none";
+    list.style.transform = "";
+    list.innerHTML = html || '<li class="empty">No updates right now.</li>';
+  }
+
+  function renderEvents() {
+    var html = "", dots = "", items = live(data.events);
+    items.forEach(function (e) {
+      var id = ' data-id="' + esc(e.id) + '"';
+      if (e.type === "poster") {
+        html += '<div class="slide poster"' + id + ' style="background-image:url(\'' + esc(e.image) + '\')"></div>';
+      } else if (e.type === "comp") {
+        var max = 1, rows = "", leaders = (e.leaders || []).filter(function (l) { return l.name; });
+        leaders.sort(function (a, b) { return (+b.points || 0) - (+a.points || 0); });
+        leaders.forEach(function (l) { if (+l.points > max) max = +l.points; });
+        leaders.forEach(function (l, i) {
+          rows += '<li><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(l.name) + '</span><span class="bar"><i style="width:' +
+            Math.round((+l.points || 0) / max * 100) + '%"></i></span><span class="pt">' + esc(+l.points || 0) + '</span></li>';
+        });
+        html += '<div class="slide card"' + id + '><span class="pill">' + esc(e.label) + '</span><div class="c-mid"><div class="c-title cond">' + esc(e.title) +
+          '</div><div class="c-text">' + esc(e.text) + '</div>' + (rows ? '<div class="lb-head">Leaderboard</div><ol class="lb">' + rows + '</ol>' : "") +
+          '</div>' + (e.ends ? '<div class="c-foot"><span>Ends ' + shortDate(e.ends) + '</span><b data-until="' + esc(e.ends) + '" data-kind="ends"></b></div>' : "") + '</div>';
+      } else {
+        html += '<div class="slide card"' + id + '><span class="pill">' + esc(e.label) + '</span><div class="c-mid">' + (e.icon === "mo" ? MO_SVG : "") +
+          '<div class="c-title cond">' + esc(e.title) + '</div>' + (e.date ? '<div class="c-when">' + shortDate(e.date) + '</div>' : "") +
+          '<div class="c-text">' + esc(e.text) + '</div></div>' + (e.date ? '<div class="c-foot"><span>' + (daysUntil(e.date) < 0 ? "Started " : "Starts ") +
+          shortDate(e.date) + '</span><b data-until="' + esc(e.date) + '"></b></div>' : "") + '</div>';
+      }
+      dots += "<i></i>";
+    });
+    $("stage").innerHTML = html || '<div class="slide card blank on"><img src="img/carindale.png" alt=""></div>';
+    $("dots").innerHTML = items.length > 1 ? dots : "";
+  }
+
+  function renderInfo() {
+    var c = data.champion, html = "", show = c && c.on !== false && c.name;
+    $("champ").style.display = show ? "" : "none";
+    if (show) {
+      $("champ-label").innerHTML = "Store Champion" + (c.month ? " &middot; " + esc(String(c.month).slice(0, 3)) : "");
+      $("champ-name").innerHTML = esc(c.name);
+      $("champ-why").innerHTML = esc(c.why);
+    }
+    live(data.notices).forEach(function (n) {
+      var q = n.type === "quote";
+      html += '<div class="n-item ' + (q ? "quote" : "") + '" data-id="' + esc(n.id) + '"><div class="label">' + (q ? "Words to cut by" : "Quick notice") + '</div>' +
+        (q ? '<span class="n-mark">&ldquo;</span>' : "") + '<div class="n-text">' + esc(n.text) + '</div></div>';
+    });
+    $("notices").style.display = html ? "" : "none";
+    $("notices").innerHTML = html;
+  }
+
+  // Day-based text: countdowns and the "Next up" event.
+  function refreshDays() {
+    var cells = document.querySelectorAll("[data-until]"), i, best = null;
+    for (i = 0; i < cells.length; i++) {
+      cells[i].innerHTML = untilText(cells[i].getAttribute("data-until"), cells[i].getAttribute("data-kind"));
+    }
+    live(data.events).forEach(function (e) {
+      if (e.date && daysUntil(e.date) >= 0 && (!best || e.date < best.date)) best = e;
+    });
+    $("next").style.display = best ? "" : "none";
+    if (best) {
+      $("next-title").innerHTML = esc(best.title);
+      $("next-when").innerHTML = shortDate(best.date) + " &middot; " + untilText(best.date);
+    }
+  }
+
+  // Shows item i of a set of crossfading elements (and its dot, if any).
+  function rotator(box, dotBox) {
+    var r = { cur: -1 };
+    r.show = function (i) {
+      var items = box.children, dots = dotBox ? dotBox.children : [];
+      if (!items.length) return;
+      i = i % items.length;
+      if (items[r.cur]) items[r.cur].classList.remove("on");
+      if (dots[r.cur]) dots[r.cur].classList.remove("on");
+      items[i].classList.add("on");
+      if (dots[i]) dots[i].classList.add("on");
+      r.cur = i;
+    };
+    r.next = function () { r.show(r.cur + 1); };
+    r.id = function () { var el = box.children[r.cur]; return el ? el.getAttribute("data-id") : null; };
+    r.showId = function (id) {
+      var items = box.children, i;
+      for (i = 0; id && i < items.length; i++) {
+        if (items[i].getAttribute("data-id") === id) { r.show(i); return true; }
+      }
+      return false;
+    };
+    return r;
+  }
+  var events = rotator($("stage"), $("dots")), notices = rotator($("notices"));
+
+  // Draws the whole board from new content, staying on the same slide and notice where they still exist.
+  function apply(b) {
+    var evId = events.id(), noteId = notices.id();
+    data = b || EMPTY;
+    gen++;
+    renderUpdates();
+    renderEvents();
+    renderInfo();
+    refreshDays();
+    events.cur = notices.cur = -1;
+    if (!events.showId(evId)) events.show(0);
+    if (!notices.showId(noteId)) notices.show(0);
+  }
+
+  var lastMinute = -1, lastDay = -1;
+  function drawClock() {
+    var d = new Date(), m = d.getHours() * 60 + d.getMinutes();
+    if (m === lastMinute) return;
+    lastMinute = m;
+    $("time").innerHTML = (d.getHours() % 12 || 12) + ":" + pad(d.getMinutes());
+    $("ampm").innerHTML = d.getHours() < 12 ? "am" : "pm";
+    if (d.getDate() !== lastDay) {
+      var first = lastDay === -1;
+      lastDay = d.getDate();
+      $("date").innerHTML = DAYS[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()];
+      if (!first) apply(data);  // a new day: items may have started or ended
+    }
+  }
+
+  // Updates: when the list is taller than the column, slide the top card away and move it to the end.
+  function stepUpdates() {
+    var list = $("updates"), first = list.firstChild, g = gen;
+    if (!first || list.offsetHeight <= list.parentNode.offsetHeight) return;
+    var h = first.offsetHeight + parseFloat(window.getComputedStyle(first).marginBottom);
+    list.style.transition = "transform .9s ease";
+    list.style.transform = "translate3d(0," + (-h) + "px,0)";
+    setTimeout(function () {
+      if (g !== gen) return;  // the board was redrawn meanwhile
+      list.style.transition = "none";
+      list.appendChild(first);
+      list.style.transform = "translate3d(0,0,0)";
+    }, 950);
+  }
+
+  /* ---------- Published content from Firebase ----------
+     Read-only, with plain web requests (no Firebase library) so old iPads cope.
+     The content is one JSON text in board/content; each poster image is its own document in posters. */
+  var API = (CFG.restBase || "https://firestore.googleapis.com/v1") + "/projects/" + CFG.projectId + "/databases/(default)/documents/";
+  var POLL_SECS = CFG.pollSecs || 60, lastStamp = "", polling = false, posterCache = {};
+
+  function getDoc(path, done) {
+    var x = new XMLHttpRequest();
+    x.open("GET", API + path + "?key=" + encodeURIComponent(CFG.apiKey));
+    x.timeout = 30000;
+    x.onload = function () {
+      var d = null;
+      if (x.status === 200) { try { d = JSON.parse(x.responseText); } catch (e) {} }
+      done(d);
+    };
+    x.onerror = x.ontimeout = function () { done(null); };
+    x.send();
+  }
+
+  // Fetches the posters the content needs (keeping ones already loaded), then calls done(allLoaded).
+  function loadPosters(content, done) {
+    var need = [], keep = {}, failed = false;
+    (content.events || []).forEach(function (e) {
+      if (e.type !== "poster" || !e.posterId) return;
+      keep[e.posterId] = true;
+      if (!posterCache[e.posterId] && need.indexOf(e.posterId) < 0) need.push(e.posterId);
+    });
+    var left = need.length;
+    function finish() {
+      var id;
+      for (id in posterCache) { if (!keep[id]) delete posterCache[id]; }
+      (content.events || []).forEach(function (e) { if (e.posterId) e.image = posterCache[e.posterId] || ""; });
+      done(!failed);
+    }
+    if (!left) { finish(); return; }
+    need.forEach(function (id) {
+      getDoc("posters/" + encodeURIComponent(id), function (d) {
+        if (d && d.fields && d.fields.data) posterCache[id] = d.fields.data.stringValue;
+        else failed = true;
+        if (--left === 0) finish();
+      });
+    });
+  }
+
+  // Checks for newly published content; the board is only redrawn when it has changed.
+  function poll() {
+    if (polling) return;
+    polling = true;
+    getDoc("board/content", function (d) {
+      var content;
+      if (!d || !d.fields || !d.fields.json || d.updateTime === lastStamp) { polling = false; return; }
+      try { content = JSON.parse(d.fields.json.stringValue); } catch (e) { polling = false; return; }
+      loadPosters(content, function (complete) {
+        if (complete) lastStamp = d.updateTime;  // otherwise the missing posters are tried again next time
+        polling = false;
+        apply(content);
+      });
+    });
+  }
+
+  // Once a night, reload to pick up new board code and start fresh. Only when the site answers,
+  // so a Wi-Fi drop never leaves Safari stuck on an error page.
+  var reloadedDay = new Date().getDate(), nextReloadTry = 0;
+  function nightlyReload(t) {
+    var n = new Date(), x;
+    if (n.getHours() !== 3 || n.getDate() === reloadedDay || t < nextReloadTry) return;
+    nextReloadTry = t + 300000;
+    x = new XMLHttpRequest();
+    x.open("GET", location.pathname + "?check=" + t);
+    x.timeout = 30000;
+    x.onload = function () {
+      if (x.status === 200) { reloadedDay = n.getDate(); location.reload(); }
+    };
+    x.send();
+  }
+
+  fit();
+  apply(data);
+  drawClock();
+  if (LIVE) poll();
+
+  var now = Date.now(), due = { upd: now + 9000, ev: now + 10000, note: now + 6000, poll: now + POLL_SECS * 1000 };
+  setInterval(function () {
+    var t = Date.now();
+    drawClock();
+    if (t >= due.upd) { due.upd = t + secs("updateSecs", 9) * 1000; stepUpdates(); }
+    if (t >= due.ev) { due.ev = t + secs("slideSecs", 10) * 1000; events.next(); }
+    if (t >= due.note) { due.note = t + secs("noticeSecs", 12) * 1000; notices.next(); }
+    if (LIVE && t >= due.poll) { due.poll = t + POLL_SECS * 1000; poll(); }
+    if (LIVE) nightlyReload(t);
+  }, 1000);
+
+  // A tap on the carousel moves to the next slide.
+  $("stage").addEventListener("click", function () {
+    events.next();
+    due.ev = Date.now() + secs("slideSecs", 10) * 1000;
+  });
+
+  if (PREVIEW) {
+    window.addEventListener("message", function (e) {
+      if (e.origin !== location.origin || !e.data || e.data.type !== "board") return;
+      apply(e.data.board);
+      // Hold the slide or notice being edited so it stays on screen.
+      if (events.showId(e.data.focus)) due.ev = Date.now() + 30000;
+      if (notices.showId(e.data.focus)) due.note = Date.now() + 30000;
+    });
+    if (window.parent !== window) window.parent.postMessage({ type: "ready", board: STARTER }, location.origin);
+  }
+
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", fit);
+  // Nothing on the board scrolls, so stop iOS rubber-banding the page.
+  document.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false });
+})();
+</script>
+</body>
+</html>

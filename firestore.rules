@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Someone signed in with a Google account that is on the editors list.
+    function isEditor() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/editors/$(request.auth.token.email.lower()));
+    }
+
+    function isOwner() {
+      return isEditor()
+        && get(/databases/$(database)/documents/editors/$(request.auth.token.email.lower())).data.role == 'Owner';
+    }
+
+    // The board content and posters: anyone can read them (the iPad reads without signing in),
+    // only editors can change them.
+    match /board/{doc} {
+      allow read: if true;
+      allow write: if isEditor();
+    }
+    match /posters/{id} {
+      allow read: if true;
+      allow write: if isEditor();
+    }
+
+    // Who can make changes. Editors can see the list; only the owner can change it.
+    match /editors/{email} {
+      allow read: if isEditor();
+      allow write: if isOwner() && email == email.lower();
+    }
+  }
+}
