@@ -8,6 +8,15 @@
 <meta name="apple-mobile-web-app-title" content="TG Notice Board">
 <meta name="format-detection" content="telephone=no">
 <title>TG Carindale Notice Board</title>
+<script>
+  // Notes script errors, so the board can say why staff check-in didn't start (shown in the header).
+  window.TG_ERRORS = [];
+  window.addEventListener("error", function (e) {
+    var t = e.target;
+    window.TG_ERRORS.push(t && t.src ? "couldn't load " + t.src.split("/").pop().split("?")[0]
+      : (e.message || "error") + (e.filename ? " in " + e.filename.split("/").pop().split("?")[0] + ":" + e.lineno : ""));
+  }, true);
+</script>
 <style>
 /* Sizes are in rem: 1rem = 16px on a 1024x768 iPad, scaled up for bigger screens by fit(). */
 html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0a0a0a; }
@@ -148,7 +157,7 @@ ul, ol { list-style: none; }
   </main>
 </div>
 
-<script src="config.js?v=de13936b2c"></script>
+<script src="config.js?v=5ab4469f64"></script>
 <script>
 (function () {
   "use strict";
@@ -192,7 +201,8 @@ ul, ol { list-style: none; }
   // ?preview: running inside the editor, which sends draft content by postMessage.
   var PREVIEW = /[?&]preview\b/.test(location.search);
   // This board's version. dev/stamp.mjs sets it, the ?v= on the scripts and version.json (git pre-commit hook).
-  var BUILD = "de13936b2c";
+  var BUILD = "5ab4469f64";
+  window.TG_BUILD = BUILD;
 
   var CFG = window.TG_FIREBASE || {};
   // Live: connected to Firebase and running as the real board (not inside the editor).
@@ -484,6 +494,17 @@ ul, ol { list-style: none; }
   drawClock();
   if (LIVE) poll();
 
+  // If staff check-in hasn't appeared 20 seconds after loading, say why in the header, so it can be read off the iPad.
+  if (LIVE) setTimeout(function () {
+    if (window.TG_CHECKIN === "shown") return;
+    var top = document.querySelector(".top"), note = document.createElement("div");
+    note.style.cssText = "margin-left:auto;max-width:26rem;font-size:.75rem;line-height:1.25;color:#ff8a8a;text-align:right";
+    var errs = (window.TG_ERRORS || []).join("; ");
+    note.innerHTML = "Check-in didn't start: " + esc(errs || (window.TG_CHECKIN ? "it began, then stopped" : "no error was reported")) + " (version " + esc(BUILD) + ")";
+    top.insertBefore(note, top.querySelector(".top-title"));
+    top.querySelector(".top-title").style.marginLeft = "1rem";
+  }, 20000);
+
   var now = Date.now(), due = { upd: now + 9000, ev: now + 10000, note: now + 6000, poll: now + POLL_SECS * 1000, ver: now + 60000 };
   setInterval(function () {
     var t = Date.now();
@@ -520,6 +541,6 @@ ul, ol { list-style: none; }
 })();
 </script>
 <!-- Staff check-in. A module, so iPads too old to run it simply skip it. -->
-<script type="module" src="checkin.js?v=de13936b2c"></script>
+<script type="module" src="checkin.js?v=5ab4469f64"></script>
 </body>
 </html>

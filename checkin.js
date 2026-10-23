@@ -9,8 +9,11 @@ const FB = 'https://www.gstatic.com/firebasejs/12.4.0/';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const IDLE_MS = 30000, DONE_MS = 4000, MAX_TRIES = 5, LOCK_MS = 60000;
 
-let A, F, auth, db;
+let A, F, app, auth, db;
 let uid = null, registered = false, deviceName = '', pairCode = '';
+// loading | ready | failed. lastError is shown on screen, so a problem on the iPad can be read out.
+let state = 'loading', lastError = '';
+window.TG_CHECKIN = 'started';
 let staff = [], today = [], watchingDay = '', unwatch = [];
 let who = null, pin = '', tries = {}, idleTimer = 0, doneTimer = 0;
 
@@ -21,26 +24,31 @@ const time = t => new Date(t).toLocaleTimeString('en-AU', { hour: 'numeric', min
 const dur = ms => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`; };
 const greet = () => { const h = new Date().getHours(); return h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening'; };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-if (!PREVIEW && CFG.apiKey && CFG.projectId) start();
+const describe = err => `${(err && (err.code || err.name)) || 'Error'}: ${(err && err.message) || err}`;
 
 async function start() {
+  state = 'loading';
+  let step = 'Loading Firebase';
   try {
     const mods = await Promise.all([import(FB + 'firebase-app.js'), import(FB + 'firebase-auth.js'), import(FB + 'firebase-firestore.js')]);
     A = mods[1];
     F = mods[2];
-    const app = mods[0].initializeApp(CFG, 'checkin');
-    auth = A.getAuth(app);
-    db = F.initializeFirestore(app, { localCache: F.persistentLocalCache() });
+    step = 'Starting Firebase';
+    app = app || mods[0].initializeApp(CFG, 'checkin');
+    auth = auth || A.getAuth(app);
+    step = 'Opening the database';
+    db = db || F.initializeFirestore(app, { localCache: F.persistentLocalCache() });
   } catch (err) {
-    setTimeout(start, 300000);  // probably offline: try again in 5 minutes
+    state = 'failed';
+    lastError = `${step}: ${describe(err)}`;
+    setTimeout(start, 60000);  // perhaps offline: try again in a minute
     return;
   }
-  buildUI();
+  state = 'ready';
   A.onAuthStateChanged(auth, u => {
-    if (u) { uid = u.uid; watchDevice(); return; }
-    A.signInAnonymously(auth).catch(() => setTimeout(() => A.signInAnonymously(auth).catch(() => {}), 60000));
-  });
+    if (u) { uid = u.uid; lastError = ''; watchDevice(); return; }
+    signIn();
+  }, err => { lastError = `Sign-in: ${describe(err)}`; });
   setInterval(() => {
     if (registered && dayKey(new Date()) !== watchingDay) watchToday();  // a new day
   }, 60000);
@@ -50,6 +58,13 @@ async function start() {
 }
 
 /* ---------- Firebase ---------- */
+function signIn() {
+  A.signInAnonymously(auth).catch(err => {
+    lastError = `Sign-in: ${describe(err)}`;
+    setTimeout(() => { if (!uid) signIn(); }, 60000);
+  });
+}
+
 function watchDevice() {
   F.onSnapshot(F.doc(db, 'devices', uid), snap => {
     const was = registered;
@@ -65,7 +80,7 @@ function watchDevice() {
       postCode();
       if (isOpen() && onStep('setup')) showSetup();
     }
-  }, () => { registered = false; postCode(); });
+  }, err => { registered = false; lastError = `Checking registration: ${describe(err)}`; postCode(); });
 }
 
 // The code an editor types to register this iPad. It stays the same until the iPad's sign-in changes.
@@ -77,7 +92,9 @@ function postCode() {
     try { localStorage.setItem('tg-pair', JSON.stringify(saved)); } catch (e) {}
   }
   pairCode = saved.code;
-  F.setDoc(F.doc(db, 'pairing', pairCode), { uid, createdAt: F.serverTimestamp() }).catch(() => {});  // already posted is fine
+  // Refused when this code was already posted, which is fine; anything else is worth showing.
+  F.setDoc(F.doc(db, 'pairing', pairCode), { uid, createdAt: F.serverTimestamp() })
+    .catch(err => { if (err.code !== 'permission-denied') lastError = `Posting the code: ${describe(err)}`; });
 }
 
 function watchStaff() {
@@ -187,6 +204,7 @@ function buildUI() {
   top.insertBefore(btn, top.querySelector('.top-title'));
   top.classList.add('ci-has');
   btn.addEventListener('click', () => (registered ? openWho() : (showSetup(), show())));
+  window.TG_CHECKIN = 'shown';
 
   const ov = document.createElement('div');
   ov.className = 'ci-ov';
@@ -255,6 +273,15 @@ function close() { clearTimeout(idleTimer); clearTimeout(doneTimer); $('ci-ov').
 function poke() { clearTimeout(idleTimer); idleTimer = setTimeout(close, IDLE_MS); }
 
 function showSetup() {
+  const problem = lastError ? `<p class="ci-p" style="color:#ff8a8a;font-size:1.05rem">Problem: ${esc(lastError)}</p>` : '';
+  const build = `<p class="ci-p" style="color:#666;font-size:.9rem">Board version ${esc(window.TG_BUILD || '?')}</p>`;
+  if (state !== 'ready' || !uid) {
+    $('ci-setup').innerHTML = (state === 'failed'
+      ? "<p class=\"ci-p\">Staff check-in couldn't start on this iPad. It keeps trying every minute.</p>"
+      : '<p class="ci-p">Staff check-in is still starting. Try again in a moment.</p>') + problem + build;
+    step('setup', 'Check-in', state === 'failed' ? 'Not working yet' : 'Starting up');
+    return;
+  }
   if (registered) {
     $('ci-setup').innerHTML = `<p class="ci-p">This iPad is registered for staff check-in as <b>${esc(deviceName)}</b>.</p>
       <p class="ci-p">Barbers and their PINs are managed in the editor, under Shifts.</p>`;
@@ -262,7 +289,7 @@ function showSetup() {
   } else {
     $('ci-setup').innerHTML = `<p class="ci-p">Staff check-in isn't switched on for this iPad yet. In the editor, open <b>Shifts</b>, then under <b>Shop iPad</b> type this code:</p>
       <div class="ci-code">${esc(pairCode || '······')}</div>
-      <p class="ci-p">This screen changes by itself once it's done.</p>`;
+      <p class="ci-p">This screen changes by itself once it's done.</p>${problem}${build}`;
     step('setup', 'Set up check-in', 'For the shop manager');
   }
 }
@@ -386,4 +413,10 @@ function showDone(ok, h, p) {
   step('done', ok ? 'All done' : 'Something went wrong', '');
   clearTimeout(doneTimer);
   if (ok) doneTimer = setTimeout(close, DONE_MS);
+}
+
+// Started last, once everything above is defined. The button shows straight away; Firebase loads behind it.
+if (!PREVIEW && CFG.apiKey && CFG.projectId) {
+  buildUI();
+  start();
 }
