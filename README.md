@@ -2,6 +2,11 @@
 
 A notice board for an old iPad in kiosk mode at Tommy Gun's Carindale, and a web editor for changing what it shows.
 
+- Board: https://prouterson.github.io/tg-noticeboard/
+- Editor: https://prouterson.github.io/tg-noticeboard/editor.html
+
+Both are served by GitHub Pages from the `main` branch. Pushing to `main` updates the site, and the iPad picks up new board code at its nightly reload. Board content lives in Firebase project `tg-notice-board`, not in this repo.
+
 - `index.html`: the board. Plain ES5 JavaScript so old iOS Safari (9.3 and later) can run it. Every minute it reads the published content from Firestore over plain REST, with no Firebase library. Around 3am it reloads itself, but only if the site answers.
 - `editor.html`: the editor. Sign in with Google, edit, see a live preview, then Publish. It uses the Firebase JS SDK from gstatic.
 - `config.js`: the Firebase web app settings. These are public. While `apiKey` is empty, the board shows its starter content and the editor runs as a demo that saves nothing.
