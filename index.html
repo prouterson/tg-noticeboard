@@ -157,7 +157,7 @@ ul, ol { list-style: none; }
   </main>
 </div>
 
-<script src="config.js?v=5ab4469f64"></script>
+<script src="config.js?v=96f52ac567"></script>
 <script>
 (function () {
   "use strict";
@@ -201,7 +201,7 @@ ul, ol { list-style: none; }
   // ?preview: running inside the editor, which sends draft content by postMessage.
   var PREVIEW = /[?&]preview\b/.test(location.search);
   // This board's version. dev/stamp.mjs sets it, the ?v= on the scripts and version.json (git pre-commit hook).
-  var BUILD = "5ab4469f64";
+  var BUILD = "96f52ac567";
   window.TG_BUILD = BUILD;
 
   var CFG = window.TG_FIREBASE || {};
@@ -540,7 +540,7 @@ ul, ol { list-style: none; }
   document.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false });
 })();
 </script>
-<!-- Staff check-in. A module, so iPads too old to run it simply skip it. -->
-<script type="module" src="checkin.js?v=5ab4469f64"></script>
+<!-- Staff check-in, in its own file: if an iPad can't run it, the board carries on without it. -->
+<script defer src="staff.js?v=96f52ac567"></script>
 </body>
 </html>

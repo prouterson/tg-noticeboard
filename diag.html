@@ -58,71 +58,53 @@
     var cfg = window.TG_FIREBASE || {};
     cfg.apiKey && cfg.projectId ? r.ok('project ' + cfg.projectId) : r.bad('config.js did not load');
 
-    r = row('Saved storage (IndexedDB)');
-    try {
-      await withTimeout(new Promise(function (yes, no) {
-        var q = indexedDB.open('tg-diag', 1);
-        q.onsuccess = function () { q.result.close(); yes(); };
-        q.onerror = function () { no(q.error || new Error('could not open')); };
-        q.onblocked = function () { no(new Error('blocked')); };
-      }), 8000);
-      r.ok();
-    } catch (e) { r.bad(describe(e)); }
+    r = row('Saved storage (localStorage)');
+    try { localStorage.setItem('tg-diag', '1'); localStorage.removeItem('tg-diag'); r.ok(); }
+    catch (e) { r.bad(describe(e)); }
 
-    r = row('Secure scrambling for PINs (crypto.subtle)');
-    window.crypto && crypto.subtle && crypto.subtle.digest ? r.ok() : r.bad('not available');
+    r = row('Random numbers (crypto.getRandomValues)');
+    window.crypto && crypto.getRandomValues ? r.ok() : r.bad('not available');
 
-    r = row('Download check-in code (checkin.js)');
+    r = row('Download check-in code (staff.js)');
     try {
-      var res = await withTimeout(fetch('checkin.js?v=diag-' + Date.now()), 15000);
+      var res = await withTimeout(fetch('staff.js?v=diag-' + Date.now()), 15000);
       var text = await res.text();
       res.ok ? r.ok('HTTP ' + res.status + ', ' + text.length + ' characters') : r.bad('HTTP ' + res.status);
     } catch (e) { r.bad(describe(e)); }
 
-    r = row('Run a module from this site');
-    try { var ping = await withTimeout(import('./dev/ping.mjs?v=' + Date.now()), 15000); ping.ok ? r.ok() : r.bad('loaded but empty'); }
-    catch (e) { r.bad(describe(e)); }
-
-    // On this page checkin.js has no board to attach to, so a TypeError about a missing element means it read fine.
-    r = row('Read the check-in code (checkin.js)');
-    try { await withTimeout(import('./checkin.js?v=diag-' + Date.now()), 30000); r.ok('read and ran'); }
-    catch (e) { /null|undefined|insertBefore|classList/i.test(e.message || '') && e.name === 'TypeError' ? r.ok('read fine') : r.bad(describe(e)); }
-
-    var FB = 'https://www.gstatic.com/firebasejs/12.4.0/', mods = [];
-    var names = ['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js'];
-    for (var i = 0; i < names.length; i++) {
-      r = row('Load Google library ' + names[i]);
-      try { mods[i] = await withTimeout(import(FB + names[i]), 30000); r.ok(); }
-      catch (e) { r.bad(describe(e)); mods[i] = null; }
-    }
-    if (!mods[0] || !mods[1] || !mods[2]) return finish();
-
-    var app, auth, db;
-    r = row('Start Firebase');
+    // On this page staff.js has no board to attach to, so an error about a missing element means it read fine.
+    r = row('Read the check-in code (staff.js)');
     try {
-      app = mods[0].initializeApp(cfg, 'diag');
-      auth = mods[1].getAuth(app);
-      db = mods[2].initializeFirestore(app, { localCache: mods[2].persistentLocalCache() });
-      r.ok();
-    } catch (e) { r.bad(describe(e)); return finish(); }
+      var before = errors.length;
+      await withTimeout(new Promise(function (yes, no) {
+        var s = document.createElement('script');
+        s.src = 'staff.js?v=diag-' + Date.now();
+        s.onload = yes;
+        s.onerror = function () { no(new Error("couldn't download it")); };
+        document.body.appendChild(s);
+      }), 30000);
+      var problems = errors.slice(before).filter(function (m) { return !/null|undefined|insertBefore|querySelector/i.test(m); });
+      problems.length ? r.bad(problems.join('; ')) : r.ok('read fine');
+    } catch (e) { r.bad(describe(e)); }
 
-    r = row('Sign this device in (anonymous)');
-    var user;
+    r = row('Reach the database');
     try {
-      user = auth.currentUser || (await withTimeout(mods[1].signInAnonymously(auth), 20000)).user;
-      r.ok('device id ' + user.uid.slice(0, 8) + '…');
-    } catch (e) { r.bad(describe(e)); return finish(); }
+      var db = await withTimeout(fetch('https://firestore.googleapis.com/v1/projects/' + cfg.projectId + '/databases/(default)/documents/board/content?key=' + cfg.apiKey), 20000);
+      db.ok ? r.ok('HTTP ' + db.status) : r.bad('HTTP ' + db.status);
+    } catch (e) { r.bad(describe(e)); }
 
-    r = row('Read from the database');
+    r = row('Reach the sign-in service');
     try {
-      var snap = await withTimeout(mods[2].getDoc(mods[2].doc(db, 'devices', user.uid)), 20000);
-      r.ok(snap.exists() ? 'this device is registered' : 'works (this device is not registered yet)');
+      // An empty token request is refused (HTTP 400), which proves the service answers.
+      var si = await withTimeout(fetch('https://securetoken.googleapis.com/v1/token?key=' + cfg.apiKey, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=x' }), 20000);
+      si.status === 400 || si.ok ? r.ok('answers') : r.bad('HTTP ' + si.status);
     } catch (e) { r.bad(describe(e)); }
     finish();
   }
 
   function finish() {
-    document.getElementById('end').textContent = 'Finished.' + (errors.length ? ' Other errors: ' + errors.join('; ') : '');
+    var other = errors.filter(function (m) { return !/null|undefined|insertBefore|querySelector/i.test(m); });
+    document.getElementById('end').textContent = 'Finished.' + (other.length ? ' Other errors: ' + other.join('; ') : '');
   }
 
   run().catch(function (e) { row('Test page itself').bad(describe(e)); finish(); });
