@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Check-in test</title>
+<style>
+  body { margin: 0; padding: 24px; background: #0d0d0d; color: #f3f3f3; font: 20px/1.4 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 30px; }
+  p { margin: 0 0 18px; color: #9c9c9c; }
+  ol { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #2c2c2c; }
+  .mark { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: #333; }
+  .ok .mark { background: #1f9d5c; }
+  .bad .mark { background: #E1000A; }
+  .what { font-weight: 700; }
+  .detail { font-size: 16px; color: #c9c9c9; word-break: break-word; }
+  .bad .detail { color: #ff9a9a; }
+</style>
+</head>
+<body>
+<h1>Check-in test</h1>
+<p>This runs each step the board's staff check-in needs. Take a photo of this page when it says Finished.</p>
+<ol id="list"></ol>
+<p id="end" style="margin-top:18px"></p>
+<script src="config.js?v=diag"></script>
+<script>
+(function () {
+  var list = document.getElementById('list');
+  function row(what) {
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="mark">…</span><div><div class="what"></div><div class="detail"></div></div>';
+    li.querySelector('.what').textContent = what;
+    list.appendChild(li);
+    return {
+      ok: function (d) { li.className = 'ok'; li.querySelector('.mark').textContent = '✓'; li.querySelector('.detail').textContent = d || ''; },
+      bad: function (d) { li.className = 'bad'; li.querySelector('.mark').textContent = '✗'; li.querySelector('.detail').textContent = d || ''; }
+    };
+  }
+  function describe(e) { return e ? ((e.code || e.name || 'Error') + ': ' + (e.message || e)) : 'no details'; }
+  function withTimeout(p, ms) {
+    return Promise.race([p, new Promise(function (_, no) { setTimeout(function () { no(new Error('No answer after ' + ms / 1000 + ' seconds')); }, ms); })]);
+  }
+
+  var errors = [];
+  window.addEventListener('error', function (e) { errors.push(e.message || (e.target && (e.target.src || e.target.href)) || 'error event'); }, true);
+
+  async function run() {
+    var r = row('Browser');
+    r.ok(navigator.userAgent);
+
+    r = row('Can run modules');
+    var mod = 'noModule' in document.createElement('script');
+    mod ? r.ok() : r.bad('This browser is too old for the check-in part');
+
+    r = row('Settings file (config.js)');
+    var cfg = window.TG_FIREBASE || {};
+    cfg.apiKey && cfg.projectId ? r.ok('project ' + cfg.projectId) : r.bad('config.js did not load');
+
+    r = row('Saved storage (IndexedDB)');
+    try {
+      await withTimeout(new Promise(function (yes, no) {
+        var q = indexedDB.open('tg-diag', 1);
+        q.onsuccess = function () { q.result.close(); yes(); };
+        q.onerror = function () { no(q.error || new Error('could not open')); };
+        q.onblocked = function () { no(new Error('blocked')); };
+      }), 8000);
+      r.ok();
+    } catch (e) { r.bad(describe(e)); }
+
+    r = row('Secure scrambling for PINs (crypto.subtle)');
+    window.crypto && crypto.subtle && crypto.subtle.digest ? r.ok() : r.bad('not available');
+
+    r = row('Download check-in code (checkin.js)');
+    try {
+      var res = await withTimeout(fetch('checkin.js?v=diag-' + Date.now()), 15000);
+      var text = await res.text();
+      res.ok ? r.ok('HTTP ' + res.status + ', ' + text.length + ' characters') : r.bad('HTTP ' + res.status);
+    } catch (e) { r.bad(describe(e)); }
+
+    r = row('Run a module from this site');
+    try { var ping = await withTimeout(import('./dev/ping.mjs?v=' + Date.now()), 15000); ping.ok ? r.ok() : r.bad('loaded but empty'); }
+    catch (e) { r.bad(describe(e)); }
+
+    // On this page checkin.js has no board to attach to, so a TypeError about a missing element means it read fine.
+    r = row('Read the check-in code (checkin.js)');
+    try { await withTimeout(import('./checkin.js?v=diag-' + Date.now()), 30000); r.ok('read and ran'); }
+    catch (e) { /null|undefined|insertBefore|classList/i.test(e.message || '') && e.name === 'TypeError' ? r.ok('read fine') : r.bad(describe(e)); }
+
+    var FB = 'https://www.gstatic.com/firebasejs/12.4.0/', mods = [];
+    var names = ['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js'];
+    for (var i = 0; i < names.length; i++) {
+      r = row('Load Google library ' + names[i]);
+      try { mods[i] = await withTimeout(import(FB + names[i]), 30000); r.ok(); }
+      catch (e) { r.bad(describe(e)); mods[i] = null; }
+    }
+    if (!mods[0] || !mods[1] || !mods[2]) return finish();
+
+    var app, auth, db;
+    r = row('Start Firebase');
+    try {
+      app = mods[0].initializeApp(cfg, 'diag');
+      auth = mods[1].getAuth(app);
+      db = mods[2].initializeFirestore(app, { localCache: mods[2].persistentLocalCache() });
+      r.ok();
+    } catch (e) { r.bad(describe(e)); return finish(); }
+
+    r = row('Sign this device in (anonymous)');
+    var user;
+    try {
+      user = auth.currentUser || (await withTimeout(mods[1].signInAnonymously(auth), 20000)).user;
+      r.ok('device id ' + user.uid.slice(0, 8) + '…');
+    } catch (e) { r.bad(describe(e)); return finish(); }
+
+    r = row('Read from the database');
+    try {
+      var snap = await withTimeout(mods[2].getDoc(mods[2].doc(db, 'devices', user.uid)), 20000);
+      r.ok(snap.exists() ? 'this device is registered' : 'works (this device is not registered yet)');
+    } catch (e) { r.bad(describe(e)); }
+    finish();
+  }
+
+  function finish() {
+    document.getElementById('end').textContent = 'Finished.' + (errors.length ? ' Other errors: ' + errors.join('; ') : '');
+  }
+
+  run().catch(function (e) { row('Test page itself').bad(describe(e)); finish(); });
+})();
+</script>
+</body>
+</html>
