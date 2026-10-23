@@ -175,6 +175,44 @@ input[type=date].inp, select.inp { color-scheme: dark; }
 .addrow { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; }
 .addr { font-family: ui-monospace, Consolas, monospace; font-size: 14px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; word-break: break-all; user-select: all; }
 @media (max-width: 640px) { .addrow { grid-template-columns: 1fr; } }
+
+/* Shifts tab: no board preview, the pane takes the full width */
+.layout.wide { grid-template-columns: 230px minmax(0, 1fr); }
+.layout.wide .preview { display: none; }
+.layout.wide ~ .fab { display: none !important; }
+.warn-box { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-color: #5a2222; background: #1c1010; }
+.grow { flex: 1; }
+.chip.inc { background: rgba(52, 199, 123, .15); color: var(--green); }
+.chip.brkc { background: rgba(242, 169, 59, .15); color: var(--amber); }
+.chip.warnc { background: rgba(225, 0, 10, .18); color: #ff7070; }
+.daynav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dayname { font-size: 20px; font-weight: 800; margin: 0 6px; }
+.tablewrap { overflow-x: auto; }
+table.sh { width: 100%; border-collapse: collapse; min-width: 560px; }
+table.sh th { text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+table.sh td { padding: 12px 10px; border-bottom: 1px solid #222; vertical-align: middle; }
+table.sh tr:last-child td { border-bottom: 0; }
+table.sh td.nm { font-weight: 800; font-size: 16px; }
+table.sh .chip { margin-left: 6px; }
+.edited { display: block; font-size: 12px; font-weight: 600; color: var(--amber); margin-top: 2px; }
+.muted { color: #777; }
+.totals { display: flex; gap: 24px; flex-wrap: wrap; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.totals b { color: #fff; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.grid2 > .card-box { margin-bottom: 0; align-content: start; }
+.range { display: flex; gap: 8px; flex-wrap: wrap; }
+.range .btn.on { background: var(--red); border-color: var(--red); color: #fff; }
+.strow { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.strow:last-child { border-bottom: 0; }
+.strow b { flex: 1; min-width: 0; }
+.strow.off b { opacity: .5; }
+.strow.editing { flex-wrap: wrap; }
+.strow.editing .inp { flex: 1; min-width: 120px; }
+.av { width: 36px; height: 36px; border-radius: 50%; background: #2a2a2a; display: grid; place-items: center; font-weight: 800; flex: none; }
+.editbox { border-color: #5a5a5a; }
+.editbox h3 .help { display: inline; font-weight: 600; margin-left: 6px; }
+@media (max-width: 1099px) { .layout.wide { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -326,6 +364,7 @@ input[type=date].inp, select.inp { color-scheme: dark; }
     ['events', 'Competitions & Events'],
     ['champion', 'Store Champion'],
     ['notices', 'Notices & Quotes'],
+    ['shifts', 'Shifts'],
     ['settings', 'Settings'],
   ];
   function renderTabs() {
@@ -343,6 +382,7 @@ input[type=date].inp, select.inp { color-scheme: dark; }
     events: ['Competitions & Events', 'Middle column. Posters and cards take turns, in this order.'],
     champion: ['Store Champion', 'The red panel on the right.'],
     notices: ['Notices & Quotes', 'Bottom right. One at a time, in this order.'],
+    shifts: ['Shifts', "Barbers check in, take breaks and finish on the shop iPad with their PIN. Everything here saves straight away; there's nothing to publish."],
     settings: ['Settings', 'How the board behaves, and who can change it.'],
   };
   const ADDS = {
@@ -360,10 +400,13 @@ input[type=date].inp, select.inp { color-scheme: dark; }
       html += list.length ? list.map((x, i) => itemHTML(tab, x, i, list.length)).join('') : '<div class="empty-list">Nothing here yet.</div>';
     } else if (tab === 'champion') {
       html += championHTML();
+    } else if (tab === 'shifts') {
+      html += shiftsHTML();
     } else {
       html += settingsHTML();
     }
     pane.innerHTML = html;
+    $('.layout').classList.toggle('wide', tab === 'shifts');
   }
 
   function itemHTML(key, x, i, n) {
@@ -513,6 +556,8 @@ input[type=date].inp, select.inp { color-scheme: dark; }
   }
 
   pane.addEventListener('input', e => {
+    if (e.target.dataset.sf && SH.editing) { setPath(SH.editing, e.target.dataset.sf, e.target.value); return; }
+    if (e.target.dataset.sr) { SH[e.target.dataset.sr] = e.target.value; SH.rangeName = 'custom'; return; }
     const el = e.target, f = el.dataset.f, obj = f && targetOf(el);
     if (!obj || el.type === 'checkbox' || el.type === 'file') return;
     setPath(obj, f, el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value);
@@ -533,6 +578,8 @@ input[type=date].inp, select.inp { color-scheme: dark; }
       changed();
     } else if (el.type === 'file' && el.files[0]) {
       loadPoster(el);
+    } else if (el.dataset.act === 'st-active') {
+      shSetActive(el.dataset.id, el.checked);
     }
   });
 
@@ -599,6 +646,73 @@ input[type=date].inp, select.inp { color-scheme: dark; }
       case 'ed-del':
         if (!armed(b, 'Tap again')) return;
         removeEditor(editors[+b.dataset.j]);
+        break;
+      // Shifts tab
+      case 'sh-day':
+        SH.day = +b.dataset.n === 0 ? todayKey() : addDays(SH.day, +b.dataset.n);
+        SH.editing = null;
+        shWatchDay();
+        renderPane();
+        break;
+      case 'sh-new':
+        shOpenEdit(null);
+        break;
+      case 'sh-edit':
+        shOpenEdit(SH.shown[+b.dataset.i]);
+        break;
+      case 'sh-fix':
+        shOpenEdit(SH.warnings[+b.dataset.i]);
+        break;
+      case 'sh-brk-add':
+        SH.editing.breaks.push({ from: '', to: '' });
+        renderPane();
+        break;
+      case 'sh-brk-del':
+        SH.editing.breaks.splice(+b.dataset.j, 1);
+        renderPane();
+        break;
+      case 'sh-cancel':
+        SH.editing = null;
+        renderPane();
+        break;
+      case 'sh-save':
+        shSave();
+        break;
+      case 'sh-remove':
+        if (!armed(b, 'Tap again to remove')) return;
+        shRemove();
+        break;
+      case 'sh-range':
+        shRange(b.dataset.r);
+        renderPane();
+        break;
+      case 'sh-dl':
+        shDownload();
+        break;
+      case 'dev-reg':
+        shRegister();
+        break;
+      case 'dev-del':
+        if (!armed(b, 'Tap again')) return;
+        shUnregister(b.dataset.id);
+        break;
+      case 'st-add':
+        shAddStaff();
+        break;
+      case 'st-edit':
+        SH.staffEdit = b.dataset.id;
+        renderPane();
+        break;
+      case 'st-cancel':
+        SH.staffEdit = null;
+        renderPane();
+        break;
+      case 'st-save':
+        shSaveStaff(b.dataset.id);
+        break;
+      case 'st-del':
+        if (!armed(b, 'Tap again to delete')) return;
+        shDeleteStaff(b.dataset.id);
         break;
     }
   });
@@ -735,7 +849,7 @@ input[type=date].inp, select.inp { color-scheme: dark; }
     fb.A.onAuthStateChanged(fb.auth, u => {
       user = u;
       if (u) openEditor();
-      else showSignin();
+      else { shStop(); showSignin(); }
     });
   }
 
@@ -866,6 +980,405 @@ input[type=date].inp, select.inp { color-scheme: dark; }
     }
   }
 
+  /* ---------- Shifts: saved straight to Firebase, nothing to publish ----------
+     events/{id}: { staffId, name, type: start | break | back | finish, at, day: YYYY-MM-DD, device }.
+     Fixes never change an entry: the old ones are marked void and new ones added with editedBy and reason. */
+  const SH = { day: '', events: [], staff: [], devices: null, warnings: [], shown: [], editing: null, staffEdit: null,
+    stale: false, unsubDay: null, unsubStaff: null, from: '', to: '', rangeName: 'this' };
+  const tsAt = (day, t) => { const [y, m, d] = day.split('-').map(Number), [h, mi] = t.split(':').map(Number); return new Date(y, m - 1, d, h, mi); };
+  const hhmm = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const clock = t => (t ? new Date(t).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }).replace(/\s/g, '').toLowerCase() : '');
+  const hm = ms => { const m = Math.round(ms / 60000); return `${Math.floor(m / 60)}h ${pad(m % 60)}m`; };
+  const longDay = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }); };
+  const addDays = (k, n) => { const [y, m, d] = k.split('-').map(Number), t = new Date(y, m - 1, d + n); return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`; };
+  const myName = () => (user && user.displayName ? user.displayName.split(' ')[0] : (user && user.email) || 'editor');
+  const toEvents = qs => qs.docs.map(d => ({ id: d.id, ...d.data(), at: d.data().at ? d.data().at.toMillis() : 0 }));
+
+  // Must match checkin.js.
+  async function pinHash(staffId, digits) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`tgnb:${staffId}:${digits}`));
+    return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Turns check-in entries into shifts: { staffId, name, day, start, breaks: [{ from, to }], end, events, edited }.
+  function computeShifts(events) {
+    const groups = new Map(), out = [];
+    events.filter(e => !e.void && e.at).sort((a, b) => a.at - b.at).forEach(e => {
+      const k = `${e.staffId}|${e.day}`;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(e);
+    });
+    groups.forEach(list => {
+      let cur = null;
+      const open = (e, start) => { if (cur) out.push(cur); cur = { staffId: e.staffId, name: e.name, day: e.day, start, breaks: [], end: null, events: [], edited: false }; };
+      list.forEach(e => {
+        if (e.type === 'start') open(e, e.at);
+        else if (!cur || cur.end) open(e, null);
+        cur.events.push(e);
+        if (e.editedBy) Object.assign(cur, { edited: true, editedBy: e.editedBy, reason: e.reason });
+        const last = cur.breaks[cur.breaks.length - 1];
+        if (e.type === 'break') cur.breaks.push({ from: e.at, to: null });
+        else if (e.type === 'back') { if (last && !last.to) last.to = e.at; else cur.breaks.push({ from: null, to: e.at }); }
+        else if (e.type === 'finish') { if (last && !last.to) last.to = e.at; cur.end = e.at; }
+      });
+      if (cur) out.push(cur);
+    });
+    return out.sort((a, b) => (a.start || a.events[0].at) - (b.start || b.events[0].at));
+  }
+
+  function workedMs(s, now) {
+    if (!s.start) return 0;
+    const end = s.end || now;
+    const breaks = s.breaks.reduce((t, b) => t + ((b.to || end) - (b.from || s.start)), 0);
+    return Math.max(0, end - s.start - breaks);
+  }
+
+  function shStart() {
+    if (!LIVE || SH.unsubStaff) return;
+    const { F, db } = fb;
+    SH.day = SH.day || todayKey();
+    if (!SH.from) shRange('this');
+    SH.unsubStaff = F.onSnapshot(F.collection(db, 'staff'), qs => {
+      SH.staff = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      shRender();
+    }, () => toast("The barber list couldn't be loaded."));
+    shWatchDay();
+    shLoadWarnings();
+    shLoadDevices();
+  }
+
+  function shStop() {
+    if (SH.unsubStaff) SH.unsubStaff();
+    if (SH.unsubDay) SH.unsubDay();
+    SH.unsubStaff = SH.unsubDay = null;
+    SH.editing = SH.staffEdit = null;
+  }
+
+  function shWatchDay() {
+    const { F, db } = fb;
+    if (SH.unsubDay) SH.unsubDay();
+    SH.events = [];
+    SH.unsubDay = F.onSnapshot(F.query(F.collection(db, 'events'), F.where('day', '==', SH.day)), qs => {
+      SH.events = toEvents(qs);
+      shRender();
+    }, () => toast("The timesheet couldn't be loaded."));
+  }
+
+  // Shifts from the last two weeks with no finish (or no start) need fixing.
+  async function shLoadWarnings() {
+    const { F, db } = fb, today = todayKey();
+    try {
+      const qs = await F.getDocs(F.query(F.collection(db, 'events'), F.where('day', '>=', addDays(today, -14)), F.where('day', '<', today)));
+      SH.warnings = computeShifts(toEvents(qs)).filter(s => !s.end || !s.start);
+    } catch (err) {
+      SH.warnings = [];
+    }
+    shRender();
+  }
+
+  async function shLoadDevices() {
+    const { F, db } = fb;
+    try {
+      SH.devices = (await F.getDocs(F.collection(db, 'devices'))).docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (err) {
+      SH.devices = [];
+    }
+    shRender();
+  }
+
+  // Redraws the Shifts tab when new data arrives, but not while someone is typing or has a form open.
+  function shRender() {
+    if (tab !== 'shifts') return;
+    const a = document.activeElement;
+    if (SH.editing || SH.staffEdit || (a && pane.contains(a) && a.matches('input, select, textarea'))) { SH.stale = true; return; }
+    SH.stale = false;
+    renderPane();
+  }
+  pane.addEventListener('focusout', () => setTimeout(() => { if (SH.stale) shRender(); }, 300));
+
+  function shRange(which) {
+    const mon = addDays(todayKey(), -((new Date().getDay() + 6) % 7));
+    if (which === 'this') { SH.from = mon; SH.to = addDays(mon, 6); }
+    if (which === 'last') { SH.from = addDays(mon, -7); SH.to = addDays(mon, -1); }
+    if (which === 'fortnight') { SH.from = addDays(mon, -14); SH.to = addDays(mon, -1); }
+    SH.rangeName = which;
+  }
+
+  function shiftsHTML() {
+    if (!LIVE) return '<div class="card-box"><p class="help" style="margin:0">Shifts work once the editor is connected to Firebase.</p></div>';
+    const today = todayKey(), isToday = SH.day === today, now = Date.now();
+    const shifts = SH.shown = computeShifts(SH.events);
+    const dash = '<span class="muted">—</span>';
+    let html = SH.warnings.map((s, i) => `<div class="card-box warn-box"><span class="chip warnc">Needs fixing</span>
+      <b class="grow">${esc(s.name)} ${s.start ? `didn't check out on ${esc(longDay(s.day))} <span class="help" style="display:inline">(started ${clock(s.start)})</span>` : `has a break or finish with no start on ${esc(longDay(s.day))}`}</b>
+      <button class="btn small red" data-act="sh-fix" data-i="${i}">${s.start ? 'Add finish time' : 'Fix'}</button></div>`).join('');
+    if (SH.editing) html += shEditHTML();
+
+    const rows = shifts.map((s, i) => {
+      const lastBreak = s.breaks[s.breaks.length - 1];
+      const chip = s.end ? '<span class="chip">Finished</span>'
+        : !isToday ? '<span class="chip warnc">No finish</span>'
+        : lastBreak && !lastBreak.to ? '<span class="chip brkc">On break</span>' : '<span class="chip inc">In</span>';
+      const breaks = s.breaks.map(b => `${clock(b.from) || '?'}–${b.to ? clock(b.to) : ''}`).join('<br>') || dash;
+      const worked = s.start && (s.end || isToday) ? hm(workedMs(s, now)) + (s.end ? '' : ' so far') : dash;
+      return `<tr><td class="nm">${esc(s.name)}${chip}${s.edited ? `<span class="edited">Edited by ${esc(s.editedBy)}${s.reason ? `: ${esc(s.reason)}` : ''}</span>` : ''}</td>
+        <td>${clock(s.start) || dash}</td><td>${breaks}</td><td>${s.end ? clock(s.end) : dash}</td><td><b>${worked}</b></td>
+        <td><button class="btn small ghost" data-act="sh-edit" data-i="${i}">Edit</button></td></tr>`;
+    }).join('');
+    const total = shifts.reduce((t, s) => t + (s.start && (s.end || isToday) ? workedMs(s, now) : 0), 0);
+    const stillIn = isToday ? shifts.filter(s => !s.end).map(s => s.name) : [];
+    html += `<div class="card-box">
+      <div class="daynav">
+        <button class="btn small ghost" data-act="sh-day" data-n="-1" aria-label="Day before">&lsaquo;</button>
+        <span class="dayname">${esc(longDay(SH.day))}</span>
+        <button class="btn small ghost" data-act="sh-day" data-n="1" aria-label="Day after"${isToday ? ' disabled' : ''}>&rsaquo;</button>
+        <span class="grow"></span>
+        ${isToday ? '' : '<button class="btn small ghost" data-act="sh-day" data-n="0">Today</button>'}
+        <button class="btn small" data-act="sh-new">+ Add a shift</button>
+      </div>
+      ${rows ? `<div class="tablewrap"><table class="sh"><thead><tr><th>Barber</th><th>Started</th><th>Breaks</th><th>Finished</th><th>Worked</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<p class="help" style="margin:0">No check-ins ${isToday ? 'yet today' : 'on this day'}.</p>`}
+      ${rows ? `<div class="totals"><span>Barbers: <b>${new Set(shifts.map(s => s.staffId)).size}</b></span><span>Hours${isToday ? ' so far' : ''}: <b>${hm(total)}</b></span>${stillIn.length ? `<span>Still in: <b>${esc(stillIn.join(', '))}</b></span>` : ''}</div>` : ''}
+    </div>`;
+    html += `<div class="grid2">${downloadHTML()}${devicesHTML()}</div>${staffHTML()}`;
+    return html;
+  }
+
+  function shEditHTML() {
+    const e = SH.editing;
+    const who = e.isNew
+      ? `<div class="field"><label>Barber</label><select class="inp" data-sf="staffId" aria-label="Barber">${SH.staff.map(p => `<option value="${esc(p.id)}"${p.id === e.staffId ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>`
+      : '';
+    const breaks = e.breaks.map((b, j) => `<div class="lrow">
+        <input class="inp" type="time" data-sf="breaks.${j}.from" value="${esc(b.from)}" aria-label="Break started">
+        <span class="muted" style="align-self:center">to</span>
+        <input class="inp" type="time" data-sf="breaks.${j}.to" value="${esc(b.to)}" aria-label="Break ended">
+        <button type="button" class="x" data-act="sh-brk-del" data-j="${j}" aria-label="Remove break">&times;</button></div>`).join('');
+    return `<div class="card-box editbox">
+      <h3>${e.isNew ? 'Add a shift' : `Fix ${esc(e.name)}'s shift`}<span class="help">${esc(longDay(e.day))}</span></h3>
+      ${who}
+      <div class="two">
+        <div class="field"><label>Started</label><input class="inp" type="time" data-sf="start" value="${esc(e.start)}" aria-label="Started"></div>
+        <div class="field"><label>Finished</label><input class="inp" type="time" data-sf="end" value="${esc(e.end)}" aria-label="Finished"><p class="help">Blank: still working</p></div>
+      </div>
+      <div class="field"><span class="flabel">Breaks</span>${breaks}<button type="button" class="btn ghost small" data-act="sh-brk-add">+ Add break</button></div>
+      <div class="field"><label>Reason</label><input class="inp" type="text" data-sf="reason" value="${esc(e.reason)}" placeholder="e.g. forgot to check out" maxlength="80" aria-label="Reason"></div>
+      <p class="help" style="margin:0">The original times are kept. The timesheet and the download show this shift as edited by ${esc(myName())}.</p>
+      <div class="foot">
+        <div style="display:flex;gap:8px"><button class="btn small red" data-act="sh-save">Save</button><button class="btn small ghost" data-act="sh-cancel">Cancel</button></div>
+        ${e.isNew ? '' : '<button class="btn small del" data-act="sh-remove">Remove shift</button>'}
+      </div>
+    </div>`;
+  }
+
+  function shOpenEdit(shift) {
+    SH.editing = shift
+      ? { shift, day: shift.day, staffId: shift.staffId, name: shift.name, start: shift.start ? hhmm(shift.start) : '', end: shift.end ? hhmm(shift.end) : '',
+          breaks: shift.breaks.map(b => ({ from: b.from ? hhmm(b.from) : '', to: b.to ? hhmm(b.to) : '' })), reason: '' }
+      : { shift: null, isNew: true, day: SH.day, staffId: (SH.staff.find(p => p.active !== false) || {}).id || '', start: '', end: '', breaks: [], reason: '' };
+    SH.staffEdit = null;
+    renderPane();
+    pane.querySelector('.editbox')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  async function shSave() {
+    const { F, db } = fb, e = SH.editing;
+    const p = e.isNew ? SH.staff.find(x => x.id === e.staffId) : { id: e.staffId, name: e.name };
+    if (!p) { toast('Choose the barber'); return; }
+    if (!e.start) { toast('Add the start time'); return; }
+    if (!e.isNew && !e.reason.trim()) { toast('Add a reason, e.g. forgot to check out'); return; }
+    if (e.breaks.some(b => !b.from || !b.to)) { toast('Each break needs a start and an end time'); return; }
+    const at = t => tsAt(e.day, t).getTime();
+    const times = [['start', at(e.start)]];
+    e.breaks.slice().sort((a, b) => a.from.localeCompare(b.from)).forEach(b => times.push(['break', at(b.from)], ['back', at(b.to)]));
+    if (e.end) times.push(['finish', at(e.end)]);
+    if (times.some((t, i) => i && t[1] < times[i - 1][1])) { toast('Times need to be in order: start, breaks, then finish'); return; }
+    const batch = F.writeBatch(db);
+    (e.shift ? e.shift.events : []).forEach(ev => batch.update(F.doc(db, 'events', ev.id), { void: true, voidedBy: myName(), voidedAt: F.serverTimestamp() }));
+    times.forEach(([type, ms]) => batch.set(F.doc(F.collection(db, 'events')), {
+      staffId: p.id, name: p.name, type, at: F.Timestamp.fromMillis(ms), day: e.day, device: 'editor',
+      editedBy: myName(), editedByEmail: user.email, reason: e.reason.trim() || 'Added in the editor', editedAt: F.serverTimestamp(),
+    }));
+    try {
+      await batch.commit();
+    } catch (err) {
+      toast("Couldn't save. Check the internet connection and try again.", 5);
+      return;
+    }
+    SH.editing = null;
+    toast(`Saved. Marked as edited by ${myName()}.`);
+    renderPane();
+    shLoadWarnings();
+  }
+
+  async function shRemove() {
+    const { F, db } = fb, e = SH.editing, batch = F.writeBatch(db);
+    e.shift.events.forEach(ev => batch.update(F.doc(db, 'events', ev.id), { void: true, voidedBy: myName(), voidedAt: F.serverTimestamp(), voidReason: e.reason.trim() || 'Removed' }));
+    try {
+      await batch.commit();
+    } catch (err) {
+      toast("Couldn't remove it. Check the internet connection.", 5);
+      return;
+    }
+    SH.editing = null;
+    toast('Shift removed');
+    renderPane();
+    shLoadWarnings();
+  }
+
+  function downloadHTML() {
+    const r = (n, label) => `<button class="btn small ghost${SH.rangeName === n ? ' on' : ''}" data-act="sh-range" data-r="${n}">${label}</button>`;
+    return `<div class="card-box"><h3>Download for pay</h3>
+      <p class="help" style="margin:0">A spreadsheet of every shift: start, breaks, finish and hours, with any edits marked. It opens in Excel.</p>
+      <div class="range">${r('this', 'This week')}${r('last', 'Last week')}${r('fortnight', 'Last fortnight')}</div>
+      <div class="addrow"><input class="inp" type="date" data-sr="from" value="${esc(SH.from)}" aria-label="From"><input class="inp" type="date" data-sr="to" value="${esc(SH.to)}" aria-label="To"><button class="btn small red" data-act="sh-dl">Download</button></div>
+    </div>`;
+  }
+
+  async function shDownload() {
+    const { F, db } = fb;
+    if (!SH.from || !SH.to || SH.from > SH.to) { toast('Pick a start and end date'); return; }
+    let shifts;
+    try {
+      shifts = computeShifts(toEvents(await F.getDocs(F.query(F.collection(db, 'events'), F.where('day', '>=', SH.from), F.where('day', '<=', SH.to)))));
+    } catch (err) {
+      toast("Couldn't load the shifts. Check the internet connection.", 5);
+      return;
+    }
+    if (!shifts.length) { toast('No shifts between those dates'); return; }
+    const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+    const lines = [['Date', 'Day', 'Barber', 'Started', 'Breaks', 'Break minutes', 'Finished', 'Hours worked', 'Hours (h:mm)', 'Edited by', 'Edit reason', 'Check']];
+    shifts.sort((a, b) => a.day.localeCompare(b.day) || a.name.localeCompare(b.name) || (a.start || 0) - (b.start || 0)).forEach(s => {
+      const [y, m, d] = s.day.split('-').map(Number);
+      const breakMs = s.breaks.reduce((t, b) => t + (b.from && b.to ? b.to - b.from : 0), 0);
+      const done = s.start && s.end, worked = done ? workedMs(s, s.end) : 0;
+      lines.push([s.day, new Date(y, m - 1, d).toLocaleDateString('en-AU', { weekday: 'short' }), s.name, clock(s.start),
+        s.breaks.map(b => `${clock(b.from)}-${clock(b.to)}`).join('; '), Math.round(breakMs / 60000), clock(s.end),
+        done ? (worked / 3600000).toFixed(2) : '', done ? hm(worked) : '', s.edited ? s.editedBy : '', s.reason || '',
+        !s.start ? 'No start time' : !s.end ? 'No finish time' : '']);
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + lines.map(row => row.map(cell).join(',')).join('\r\n')], { type: 'text/csv' }));
+    a.download = `shifts-${SH.from}-to-${SH.to}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+
+  function devicesHTML() {
+    const list = SH.devices === null ? '<p class="help" style="margin:0">Loading…</p>' : SH.devices.map(d => {
+      const seen = d.lastSeen ? d.lastSeen.toMillis() : 0, quiet = !seen || Date.now() - seen > 30 * 60000;
+      const when = d.registeredAt ? ` · registered ${d.registeredAt.toDate().toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}` : '';
+      return `<div class="strow"><span class="av" style="background:${quiet ? '#5a2222' : '#1f6b45'}">${quiet ? '!' : '✓'}</span>
+        <b>${esc(d.name)}<span class="help" style="display:block;font-weight:600">${seen ? `Last seen ${ago(seen)}` : 'Not seen yet'}${when}</span></b>
+        <button class="btn small del" data-act="dev-del" data-id="${esc(d.id)}">Remove</button></div>`;
+    }).join('') || '<p class="help" style="margin:0">No iPad registered yet.</p>';
+    return `<div class="card-box"><h3>Shop iPad</h3>
+      <p class="help" style="margin:0">Only registered iPads can record check-ins. To add one, tap Staff check-in on that iPad (or hold its clock for 5 seconds) to see its code, then type the code here.</p>
+      <div>${list}</div>
+      <div class="addrow"><input class="inp" id="dev-code" placeholder="Code, e.g. K7Q2M9" maxlength="6" aria-label="iPad code" style="text-transform:uppercase"><input class="inp" id="dev-name" placeholder="Name, e.g. Shop iPad" maxlength="30" aria-label="iPad name"><button class="btn small" data-act="dev-reg">Register</button></div>
+    </div>`;
+  }
+
+  async function shRegister() {
+    const { F, db } = fb;
+    const code = $('#dev-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''), name = $('#dev-name').value.trim() || 'Shop iPad';
+    if (code.length !== 6) { toast('Type the 6-character code the iPad shows'); return; }
+    try {
+      const snap = await F.getDoc(F.doc(db, 'pairing', code));
+      if (!snap.exists()) { toast('No iPad is showing that code. Check it and try again.', 5); return; }
+      await F.setDoc(F.doc(db, 'devices', snap.data().uid), { name, registeredAt: F.serverTimestamp(), registeredBy: myName() });
+      await F.deleteDoc(F.doc(db, 'pairing', code));
+    } catch (err) {
+      toast("Couldn't register it. Check the internet connection.", 5);
+      return;
+    }
+    toast(`${name} is registered. Its check-in screen is ready.`, 4);
+    shLoadDevices();
+  }
+
+  async function shUnregister(id) {
+    try {
+      await fb.F.deleteDoc(fb.F.doc(fb.db, 'devices', id));
+    } catch (err) {
+      toast("Couldn't remove it. Check the internet connection.", 5);
+      return;
+    }
+    toast('Removed. That iPad can no longer record check-ins.', 4);
+    shLoadDevices();
+  }
+
+  function staffHTML() {
+    const rows = SH.staff.map(p => SH.staffEdit === p.id
+      ? `<div class="strow editing">
+          <input class="inp" type="text" id="st-ename" value="${esc(p.name)}" maxlength="20" aria-label="Name">
+          <input class="inp" type="password" inputmode="numeric" maxlength="4" id="st-epin" placeholder="New PIN (optional)" aria-label="New PIN">
+          <button class="btn small red" data-act="st-save" data-id="${esc(p.id)}">Save</button>
+          <button class="btn small ghost" data-act="st-cancel">Cancel</button>
+          <button class="btn small del" data-act="st-del" data-id="${esc(p.id)}">Delete</button></div>`
+      : `<div class="strow${p.active === false ? ' off' : ''}"><span class="av">${esc((p.name || '?').charAt(0).toUpperCase())}</span>
+          <b>${esc(p.name)}</b><span class="help">${p.pinHash ? 'PIN set' : 'No PIN yet'}</span>
+          <button class="btn small ghost" data-act="st-edit" data-id="${esc(p.id)}">Edit</button>
+          <label class="switch" title="On the check-in screen"><input type="checkbox" data-act="st-active" data-id="${esc(p.id)}" aria-label="On the check-in screen"${p.active !== false ? ' checked' : ''}><span></span></label></div>`).join('');
+    return `<div class="card-box"><h3>Barbers</h3>
+      <p class="help" style="margin:0">The names on the check-in screen. Switch someone off when they leave: their past shifts stay in the timesheet. PINs can't be read back, only changed.</p>
+      <div>${rows || '<p class="help" style="margin:0">No barbers yet.</p>'}</div>
+      <div class="addrow"><input class="inp" type="text" id="st-name" placeholder="Barber's name" maxlength="20" aria-label="Barber's name"><input class="inp" type="password" inputmode="numeric" maxlength="4" id="st-pin" placeholder="4-digit PIN" aria-label="4-digit PIN"><button class="btn small" data-act="st-add">Add barber</button></div>
+    </div>`;
+  }
+
+  async function shAddStaff() {
+    const { F, db } = fb, name = $('#st-name').value.trim(), digits = $('#st-pin').value.trim();
+    if (!name) { toast("Type the barber's name"); return; }
+    if (!/^\d{4}$/.test(digits)) { toast('The PIN needs to be 4 numbers'); return; }
+    const ref = F.doc(F.collection(db, 'staff'));
+    try {
+      await F.setDoc(ref, { name, active: true, pinHash: await pinHash(ref.id, digits), createdAt: F.serverTimestamp() });
+    } catch (err) {
+      toast("Couldn't add them. Check the internet connection.", 5);
+      return;
+    }
+    $('#st-name').value = '';
+    $('#st-pin').value = '';
+    toast(`${name} added. Let them know their PIN.`);
+  }
+
+  async function shSaveStaff(id) {
+    const { F, db } = fb, name = $('#st-ename').value.trim(), digits = $('#st-epin').value.trim();
+    if (!name) { toast('Type a name'); return; }
+    if (digits && !/^\d{4}$/.test(digits)) { toast('The PIN needs to be 4 numbers'); return; }
+    try {
+      await F.updateDoc(F.doc(db, 'staff', id), digits ? { name, pinHash: await pinHash(id, digits) } : { name });
+    } catch (err) {
+      toast("Couldn't save. Check the internet connection.", 5);
+      return;
+    }
+    SH.staffEdit = null;
+    toast(digits ? 'Saved, with the new PIN.' : 'Saved');
+    renderPane();
+  }
+
+  async function shSetActive(id, on) {
+    try {
+      await fb.F.updateDoc(fb.F.doc(fb.db, 'staff', id), { active: on });
+    } catch (err) {
+      toast("Couldn't change it. Check the internet connection.", 5);
+    }
+  }
+
+  async function shDeleteStaff(id) {
+    try {
+      await fb.F.deleteDoc(fb.F.doc(fb.db, 'staff', id));
+    } catch (err) {
+      toast("Couldn't delete. Check the internet connection.", 5);
+      return;
+    }
+    SH.staffEdit = null;
+    toast('Deleted. Their past shifts stay in the timesheet.', 4);
+    renderPane();
+  }
+
   /* ---------- Buttons ---------- */
   $('#publish').addEventListener('click', async () => {
     const b = $('#publish');
@@ -904,6 +1417,8 @@ input[type=date].inp, select.inp { color-scheme: dark; }
     renderPane();
     sendPreview();
     if (tab === 'settings' && LIVE) loadEditors();
+    if (tab === 'shifts') shStart();
+    else shStop();
   });
 
   $('#fab').addEventListener('click', () => document.body.classList.add('pv-open'));

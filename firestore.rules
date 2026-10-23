@@ -5,13 +5,19 @@ service cloud.firestore {
     // Someone signed in with a Google account that is on the editors list.
     function isEditor() {
       return request.auth != null
-        && request.auth.token.email_verified == true
+        && request.auth.token.get('email_verified', false) == true
         && exists(/databases/$(database)/documents/editors/$(request.auth.token.email.lower()));
     }
 
     function isOwner() {
       return isEditor()
         && get(/databases/$(database)/documents/editors/$(request.auth.token.email.lower())).data.role == 'Owner';
+    }
+
+    // A shop iPad: signed in anonymously and registered by an editor.
+    function isDevice() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/devices/$(request.auth.uid));
     }
 
     // The board content and posters: anyone can read them (the iPad reads without signing in),
@@ -29,6 +35,47 @@ service cloud.firestore {
     match /editors/{email} {
       allow read: if isEditor();
       allow write: if isOwner() && email == email.lower();
+    }
+
+    // Registered shop iPads. An iPad can see its own entry and say it is still alive.
+    match /devices/{uid} {
+      allow read: if isEditor() || (request.auth != null && request.auth.uid == uid);
+      allow update: if isEditor()
+        || (request.auth != null && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen']));
+      allow create, delete: if isEditor();
+    }
+
+    // An unregistered iPad posts its code here; an editor types the code to register it.
+    match /pairing/{code} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow read, delete: if isEditor();
+    }
+
+    // Barbers on the check-in screen (with scrambled PINs). Only editors change them.
+    match /staff/{id} {
+      allow read: if isEditor() || isDevice();
+      allow write: if isEditor();
+    }
+
+    // Check-ins. A shop iPad can only add new ones, timed now (or up to a day ago, if its Wi-Fi was down).
+    // Editors can fix times; old entries are kept and marked void rather than changed.
+    match /events/{id} {
+      allow read: if isEditor() || isDevice();
+      allow create: if isEditor()
+        || (isDevice()
+            && request.resource.data.keys().hasOnly(['staffId', 'name', 'type', 'at', 'day', 'device', 'savedAt'])
+            && request.resource.data.device == request.auth.uid
+            && request.resource.data.savedAt == request.time
+            && request.resource.data.at is timestamp
+            && request.resource.data.at <= request.time + duration.value(5, 'm')
+            && request.resource.data.at >= request.time - duration.value(24, 'h')
+            && request.resource.data.type in ['start', 'break', 'back', 'finish']
+            && exists(/databases/$(database)/documents/staff/$(request.resource.data.staffId)));
+      allow update, delete: if isEditor();
     }
   }
 }
