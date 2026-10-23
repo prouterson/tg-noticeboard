@@ -825,7 +825,8 @@ input[type=date].inp, select.inp { color-scheme: dark; }
     const gone = (published.events || []).map(e => e.posterId).filter(id => id && !used.has(id));
     await Promise.all(gone.map(id => F.deleteDoc(F.doc(db, 'posters', id)).catch(() => {})));
     const after = await F.getDoc(ref);
-    loadedStamp = publishedAt = after.data().publishedAt.toMillis();
+    loadedStamp = after.data().publishedAt.toMillis();
+    publishedAt = Date.now();  // this computer's clock, so the status reads "just now" even if it differs from Google's
   }
 
   async function loadEditors() {

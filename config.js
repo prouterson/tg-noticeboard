@@ -3,8 +3,8 @@
 // the database rules (firestore.rules) decide who can change anything.
 // While apiKey is empty, the board shows its built-in starter content and the editor runs as a demo.
 window.TG_FIREBASE = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  appId: ""
+  apiKey: "AIzaSyBNt-XAeXOadkx-ziDlvd5uMP0Big-8Mxo",
+  authDomain: "tg-notice-board.firebaseapp.com",
+  projectId: "tg-notice-board",
+  appId: "1:885642858716:web:a11788dac53f87d6c12419"
 };
